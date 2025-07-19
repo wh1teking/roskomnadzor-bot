@@ -401,17 +401,18 @@ function commandMode(bot) {
                 console.log('     .walk [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
                 console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
                 console.log('     .help - показать эту справку');
-                console.log('     .debug - дебаг')
+                console.log('     .debug - дебаг');
                 console.log('     .jump - обычный прыжок');
                 console.log('     .jump multi [N] - прыгнуть N раз');
-                console.log('     .join1 - зайти на 1 выжу')
-                console.log('     .join2 - зайти на 2 выжу')
-                console.log('     .join3 - зайти на 3 выжу')
-                console.log('     .join4 - зайти на 4 выжу')
-                console.log('     .join5 - зайти на 5 выжу')
-                console.log('     .join6 - зайти на 6 выжу')
-                console.log('     .dance - станцевать лезгинку на минуту')
-                console.log('     .moderator on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)')
+                console.log('     .join1 - зайти на 1 выжу');
+                console.log('     .join2 - зайти на 2 выжу');
+                console.log('     .join3 - зайти на 3 выжу');
+                console.log('     .join4 - зайти на 4 выжу');
+                console.log('     .join5 - зайти на 5 выжу');
+                console.log('     .join6 - зайти на 6 выжу');
+                console.log('     .dance - станцевать лезгинку на минуту');
+		console.log('     .playerlist - посмотреть сколько игроков на сервере');
+                console.log('     .moderator on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
                 
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
