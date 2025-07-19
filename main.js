@@ -743,6 +743,6 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
                   \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.0
 `);
-console.log('                    project by goddamnblessed and nithban\n\n')
+console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
 askConfig();
