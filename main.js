@@ -249,21 +249,18 @@ function startBot(config) {
 
     bot.on('error', (err) => {
         console.error('[X] Ошибка подключения:', err);
-        if (server) server.close();
         rl.close();
         process.exit(1);
     });
 
     bot.on('kicked', (reason, loggedIn) => {
         console.log('[X] Кикнут по причине:', reason, ' | Кикнут после подключения:', loggedIn);
-        if (server) server.close();
         rl.close();
         process.exit(1);
     });
 
     bot.on('end', () => {
         console.log('[X] Бот отключился от сервера');
-        if (server) server.close();
         rl.close();
         process.exit(0);
     });
@@ -741,7 +738,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.0
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.0.1
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
