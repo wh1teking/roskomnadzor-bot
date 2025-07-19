@@ -158,7 +158,7 @@ function startBot(config) {
             }
         };
 
-        // обработка для веб
+        // o_0
         bot.on('message', (jsonMsg) => {
             const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const text = jsonMsg.toString();
