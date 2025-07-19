@@ -15,7 +15,7 @@ cd roskomnadzor-bot
 ```
 2. Установите все нужные библиотеки:
 ```
-npm install mineflayer socks vec3 prismarine-viewer
+npm install mineflayer socks vec3 prismarine-viewer canvas
 ```
 3. Запустите скрипт:
 ```
