@@ -17,10 +17,11 @@ const rl = readline.createInterface({
 
 // МОЖНО ДОБАВИТЬ СВОИ БАНВОРДЫ И ДРУГИЕ ТРИГГЕРЫ ПУТЕМ ДОБАВЛЕНИЯ В МАССИВЫ ВНИЗУ
 const banwords = ['мудила', 'пидор', 'пидорас', 'ебал', 'пздц', 'ебу', 'чмо', 'хуй', 'хуи']
-const message_ads = ['заход', 'сервер', 'анка', 'анархия', 'гриф', 'айпи', 'ip', 'бесплатный', 'опка', 'free', 'бесплатный донат', 'бесплатный донат', 'free op', 'бесплатная опка']
+const message_ads = ['заход', 'анка', 'анархия', 'гриф', 'айпи', 'ip', 'бесплатный', 'опка', 'free', 'бесплатный донат', 'бесплатный донат', 'free op', 'бесплатная опка']
 const message_cheat_ads = ['thunderhack', 'neverlose', 'neverlose.cc', 'nursultan', 'celestial', 'catlavan', 'catlean', 'wexside', 'тх', 'тандерхак', 'неверлуз', 'нурик', 'нурсултан', 'целка', 'целестиал', 'катлаван']
 const message_scum_ads = ['скам', 'раздача доната', 'раздача дк', 'раздача донат кейсов', 'раздача титул кейсов', 'раздача кейсов', 'раздача донат', 'раздача тк']
 const message_incitement = ['дай акк', 'продай акк', 'акк', 'аккаунт', 'продам акк', 'куплю акк']
+const message_server_abuse = ['сервер говн', 'сервер гавн', 'сервер хуй', 'серв говн', 'серв гавн', 'серв хуй']
 const rules = {
     '4.1': '4.1 Затрагивание семьи в оскорбительной форме (Наказание: мут от 2 часов до 1 дня);',
     '4.2': '4.2 *Гриферство, застройка/заливка чужих регионов, зазыв на ловушки, тп с намерением убить, мошенничество и т.п. от креатива. Неприличные/оскорбительные постройки (Наказание: бан от 6 часов до 1 дня/навсегда(только по жалобе));',
@@ -253,6 +254,21 @@ function startBot(config) {
                     }
                     if (triggered) return;
 
+                    // оск сервера
+                    for (const word of message_server_abuse) {
+                        if (message.includes(word)) {
+                            bot.chat(`@[MOD] Возможно оскорбление сервера в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            waitingRealname = nickname;
+                            setTimeout(() => {
+                                bot.chat(`/realname ${nickname}`);
+                            }, 150);
+                            console.log(`[MOD] Обнаружено оскорбление сервера "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
+                            break;
+                        }
+                    }
+                    if (triggered) return;
+
                     // под правила
                     for (const [ruleKey, ruleText] of Object.entries(rules)) {
                         const ruleRegex = new RegExp(`\\b${ruleKey}\\b`, 'i');
@@ -279,7 +295,11 @@ function startBot(config) {
                 text.includes('Настоящее имя игрока') &&
                 text.toLowerCase().includes(waitingRealname.toLowerCase())
             ) {
-                bot.chat(`@[MOD] ${text}`);
+                // проверка на null
+                if (!text.includes('Настоящее имя игрока null')) {
+                    bot.chat(`@[MOD] ${text}`);
+                    console.log(`[MOD] ${text}`);
+                }
                 waitingRealname = null;
             }
         });
@@ -312,8 +332,8 @@ function startBot(config) {
             player.username &&
             stafflist.map(n => n.toLowerCase()).includes(player.username.toLowerCase())
         ) {
-            console.log(`[MOD] -staff: ${player.username} (возможно /sv)`);
-            bot.chat(`@[MOD] -staff: ${player.username} (возможно /sv)`);
+            console.log(`[MOD] -staff: ${player.username} (возможно /sv или дисконнект)`);
+            bot.chat(`@[MOD] -staff: ${player.username} (возможно /sv или дисконнект)`);
         }
     });
 
@@ -817,7 +837,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.5
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.6
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
