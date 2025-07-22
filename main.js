@@ -291,7 +291,7 @@ function startBot(config) {
         process.exit(1);
     });
     
-    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'Jenro0', 'BarsLan_'];
+    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'JeNro0', 'BarsLan_', 'Niquoles'];
 
     bot.on('playerJoined', (player) => {
         if (
