@@ -257,7 +257,7 @@ function startBot(config) {
                     for (const [ruleKey, ruleText] of Object.entries(rules)) {
                         const ruleRegex = new RegExp(`\\b${ruleKey}\\b`, 'i');
                         if (ruleRegex.test(message)) {
-                            bot.chat(`@[MOD] Объяснение правила: ${ruleText}`)
+                            bot.chat(`@[MOD] ${ruleText}`)
                             console.log(`[MOD] Объяснение правила "${ruleKey}" в сообщении: ${jsonMsg}`);
                             break;
                         }
@@ -268,7 +268,7 @@ function startBot(config) {
                 if (banMatch) {
                     const ruleKey = banMatch[1];
                     if (rules[ruleKey]) {
-                        bot.chat(`@[MOD] Объяснение правила: ${rules[ruleKey]}`);
+                        bot.chat(`@[MOD] ${rules[ruleKey]}`);
                         console.log(`[MOD] Объяснение правила "${ruleKey}" в сообщении: ${jsonMsg}`);
                     }
                 }
@@ -291,7 +291,7 @@ function startBot(config) {
         process.exit(1);
     });
     
-    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'JeNro0', 'BarsLan_', 'Niquoles'];
+    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'Jenro0', 'BarsLan_'];
 
     bot.on('playerJoined', (player) => {
         if (
@@ -348,10 +348,12 @@ function commandMode(bot) {
 
         switch(command) {
             case '.attack':
+            case '.a':
                 performAttack(bot);
                 break;              
 
             case '.head':
+            case '.h':
                 if (args.length < 2) {
                     console.log('[X] Использование: .head [направление] [градусы]');
                     console.log('    Направления: right(r)/left(l)/up(u)/down(d)');
@@ -397,6 +399,7 @@ function commandMode(bot) {
                 break;
 
             case '.walk':
+            case '.w':
                 if (args.length < 2) {
                     console.log('[X] Использование: .walk [направление] [кол-во секунд, 0.5 = 1 блок]');
                     console.log('    Направления: forward(f)/back(b)/right(r)/left(l)');
@@ -455,31 +458,33 @@ function commandMode(bot) {
                 break;
 
             case '.help':
+            case '.h':
                 console.log('[?] Доступные команды:');
-                console.log('     .attack - ударить');
-                console.log('     .head [направление] [градусы] - повернуть голову');
+                console.log('     .attack(.a) - ударить');
+                console.log('     .head(.h) [направление] [градусы] - повернуть голову');
                 console.log('         направления: right(r)/left(l)/up(u)/down(d)');
-                console.log('     .walk [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
+                console.log('     .walk(.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
                 console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
                 console.log('     .help - показать эту справку');
                 console.log('     .debug - дебаг');
-                console.log('     .jump - обычный прыжок');
-                console.log('     .jump multi [N] - прыгнуть N раз');
-                console.log('     .surv1 - зайти на 1 выживание');
-                console.log('     .surv2 - зайти на 2 выживание');
-                console.log('     .surv3 - зайти на 3 выживание');
-                console.log('     .surv4 - зайти на 4 выживание');
-                console.log('     .surv5 - зайти на 5 выживание');
-                console.log('     .surv6 - зайти на 6 выживание');
+                console.log('     .jump(.j) - обычный прыжок');
+                console.log('     .jump(.j) multi [N] - прыгнуть N раз');
+                console.log('     .surv1(.s1) - зайти на 1 выживание');
+                console.log('     .surv2(.s2) - зайти на 2 выживание');
+                console.log('     .surv3(.s3) - зайти на 3 выживание');
+                console.log('     .surv4(.s4) - зайти на 4 выживание');
+                console.log('     .surv5(.s5) - зайти на 5 выживание');
+                console.log('     .surv6(.s6) - зайти на 6 выживание');
                 console.log('     .dance - станцевать лезгинку на минуту');
-                console.log('     .position - бот отправит свои координаты в клан-чат');
-                console.log('     .playerlist - посмотреть сколько игроков на сервере');
-                console.log('     .moderator on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
+                console.log('     .position(.pos) - бот отправит свои координаты в клан-чат');
+                console.log('     .playerlist(.pl) - посмотреть сколько игроков на сервере');
+                console.log('     .moderator(.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
                 
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
             
             case '.surv1':
+            case '.s1':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 1 выжу')
@@ -498,6 +503,7 @@ function commandMode(bot) {
                 break;
             
             case '.surv2':
+            case '.s2':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 2 выжу')
@@ -516,6 +522,7 @@ function commandMode(bot) {
                 break;
             
             case '.surv3':
+            case '.s3':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 3 выжу')
@@ -534,6 +541,7 @@ function commandMode(bot) {
                 break;
             
             case '.surv4':
+            case '.s4':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 4 выжу')
@@ -552,6 +560,7 @@ function commandMode(bot) {
                 break;
             
             case '.surv5':
+            case '.s5':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 5 выжу')
@@ -570,6 +579,7 @@ function commandMode(bot) {
                 break;
             
             case '.surv6':
+            case '.s6':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 6 выжу')
@@ -623,6 +633,7 @@ function commandMode(bot) {
                 break;
               
             case '.jump':
+            case '.j':
                 // АААА БЛЯЯЯ Я ПРЫГАЮ??!!?!?
                 if (args.length === 0) {
                     bot.setControlState('jump', true);
@@ -706,6 +717,7 @@ function commandMode(bot) {
                 break;
 
             case '.moderator':
+            case '.mod':
                 if (args[0] === 'on') {
                     bot.moderatorMode = true;
                     console.log('[+] Режим модератора включён!');
@@ -720,6 +732,7 @@ function commandMode(bot) {
                 break;
 
             case '.playerlist':
+            case '.pl':
                 console.log('\n=== СПИСОК ИГРОКОВ НА СЕРВЕРЕ ===');
                 
                 console.log('\n[1] Видимые игроки (bot.players):');
@@ -749,6 +762,7 @@ function commandMode(bot) {
                 break;
 
             case '.position':
+            case '.pos':
                 const position = bot.entity.position;
                 console.log(`[+] Позиция бота: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
                 bot.chat(`@[+] Стою на координатах: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
