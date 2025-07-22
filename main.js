@@ -291,7 +291,7 @@ function startBot(config) {
         process.exit(1);
     });
     
-    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'JeNro0', 'BarsLan_', 'Niquoles'];
+    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'D3adS0u1x', 'KrIkI6', 'DoultStout', 'yourlonelyneed', 'Fafararr', 'shirroo_', 'D1vlne', 'weq0ex', 'vaizu', 'JeNro0', 'BarsLan_', 'Niquoles'];
 
     bot.on('playerJoined', (player) => {
         if (
@@ -817,7 +817,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.4
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.5
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
