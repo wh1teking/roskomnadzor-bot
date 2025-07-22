@@ -180,7 +180,6 @@ function startBot(config) {
                     for (const word of banwords) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Банворд в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
-                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -192,7 +191,6 @@ function startBot(config) {
                     for (const word of message_ads) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Возможно реклама или созыв в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
-                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружена возможная реклама или созыв "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -204,7 +202,6 @@ function startBot(config) {
                     for (const word of message_cheat_ads) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Возможно реклама чит-клиентов в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
-                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружена возможная реклама чит-клиентов "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -216,7 +213,6 @@ function startBot(config) {
                     for (const word of message_scum_ads) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Возможно скам в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
-                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Кого-то хотят обмануть "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -228,7 +224,6 @@ function startBot(config) {
                     for (const word of message_incitement) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Возможно подстрекательство на нарушение в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
-                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружено подстрекательство на нарушение "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -751,7 +746,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.1
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
