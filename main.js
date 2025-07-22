@@ -18,7 +18,7 @@ const rl = readline.createInterface({
 // МОЖНО ДОБАВИТЬ СВОИ БАНВОРДЫ И ДРУГИЕ ТРИГГЕРЫ ПУТЕМ ДОБАВЛЕНИЯ В МАССИВЫ ВНИЗУ
 const banwords = ['мудила', 'пидор', 'пидорас', 'ебал', 'пздц', 'ебу', 'чмо', 'хуй', 'хуи']
 const message_ads = ['заход', 'сервер', 'анка', 'анархия', 'гриф', 'айпи', 'ip', 'бесплатный', 'опка', 'free', 'бесплатный донат', 'бесплатный донат', 'free op', 'бесплатная опка']
-const message_cheat_ads = ['thunderhack', 'neverlose', 'neverlose.cc', 'nursultan', 'th', 'nurik', 'celka', 'celestial', 'catlavan', 'catlean', 'wexside', 'тх', 'тандерхак', 'неверлуз', 'нурик', 'нурсултан', 'целка', 'целестиал', 'катлаван']
+const message_cheat_ads = ['thunderhack', 'neverlose', 'neverlose.cc', 'nursultan', 'celestial', 'catlavan', 'catlean', 'wexside', 'тх', 'тандерхак', 'неверлуз', 'нурик', 'нурсултан', 'целка', 'целестиал', 'катлаван']
 const message_scum_ads = ['скам', 'раздача доната', 'раздача дк', 'раздача донат кейсов', 'раздача титул кейсов', 'раздача кейсов', 'раздача донат', 'раздача тк']
 const message_incitement = ['дай акк', 'продай акк', 'акк', 'аккаунт', 'продам акк', 'куплю акк']
 const rules = {
@@ -162,6 +162,11 @@ function startBot(config) {
         bot.on('message', (jsonMsg) => {
             const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const text = jsonMsg.toString();
+            const nickMatch = text.match(/^[^|]+\|\s*\[[^\]]+\]\s*([^\s\[\]*]+).*➯/);
+            let nickname = '???';
+            if (nickMatch) {
+                nickname = nickMatch[1];
+            }
             // вывод в консоль
             console.log(`[${timestamp}] ${text}`);
             // модерация
@@ -169,66 +174,73 @@ function startBot(config) {
                 const msgMatch = text.match(/➯\s*(.+)$/i);
                 if (msgMatch) {
                     const message = msgMatch[1].toLowerCase();
-                    // на банворды
+                    let triggered = false;
+
+                    // банворды
                     for (const word of banwords) {
                         if (message.includes(word)) {
-                            bot.chat(`@Банворд! detected: ${word} || Время: ${timestamp}`);
-                            setTimeout(() => {
-                                bot.chat(`@Сообщение: ${message}`);
-                            }, 300);
+                            bot.chat(`@[MOD] Банворд в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
                             break;
                         }
                     }
-                    // на рекламу 
+                    if (triggered) return;
+
+                    // реклама
                     for (const word of message_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@Возможно реклама или созыв! detected: ${word} || Время: ${timestamp}`);
-                            setTimeout(() => {
-                                bot.chat(`@Сообщение: ${message}`);
-                            }, 300);
+                            bot.chat(`@[MOD] Возможно реклама или созыв в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружена возможная реклама или созыв "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
                             break;
                         }
                     }
-                    // на рекламу читов
+                    if (triggered) return;
+
+                    // реклама читов
                     for (const word of message_cheat_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@Возможно реклама чит-клиентов! detected: ${word} || Время: ${timestamp}`);
-                            setTimeout(() => {
-                                bot.chat(`@Сообщение: ${message}`);
-                            }, 300);
+                            bot.chat(`@[MOD] Возможно реклама чит-клиентов в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружена возможная реклама чит-клиентов "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
                             break;
                         }
                     }
-                    // на скам
+                    if (triggered) return;
+
+                    // скам
                     for (const word of message_scum_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@Возможно скам! detected: ${word} || Время: ${timestamp}`);
-                            setTimeout(() => {
-                                bot.chat(`@Сообщение: ${message}`);
-                            }, 300);
+                            bot.chat(`@[MOD] Возможно скам в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Кого-то хотят обмануть "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
                             break;
                         }
                     }
-                    // на подстрекательство
+                    if (triggered) return;
+
+                    // подстрекательство
                     for (const word of message_incitement) {
                         if (message.includes(word)) {
-                            bot.chat(`@Возможно подстрекательство на нарушение! detected: ${word} || Время: ${timestamp}`);
-                            setTimeout(() => {
-                                bot.chat(`@Сообщение: ${message}`);
-                            }, 300);
+                            bot.chat(`@[MOD] Возможно подстрекательство на нарушение в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            bot.chat(`/realname ${nickname}`)
                             console.log(`[MOD] Обнаружено подстрекательство на нарушение "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
                             break;
                         }
                     }
+                    if (triggered) return;
+
                     // под правила
                     for (const [ruleKey, ruleText] of Object.entries(rules)) {
                         const ruleRegex = new RegExp(`\\b${ruleKey}\\b`, 'i');
                         if (ruleRegex.test(message)) {
-                            bot.chat(`@Объяснение правила: ${ruleText}`)
+                            bot.chat(`@[MOD] Объяснение правила: ${ruleText}`)
                             console.log(`[MOD] Объяснение правила "${ruleKey}" в сообщении: ${jsonMsg}`);
                             break;
                         }
@@ -239,7 +251,7 @@ function startBot(config) {
                 if (banMatch) {
                     const ruleKey = banMatch[1];
                     if (rules[ruleKey]) {
-                        bot.chat(`@Объяснение правила: ${rules[ruleKey]}`);
+                        bot.chat(`@[MOD] Объяснение правила: ${rules[ruleKey]}`);
                         console.log(`[MOD] Объяснение правила "${ruleKey}" в сообщении: ${jsonMsg}`);
                     }
                 }
@@ -401,20 +413,21 @@ function commandMode(bot) {
                 console.log('     .debug - дебаг');
                 console.log('     .jump - обычный прыжок');
                 console.log('     .jump multi [N] - прыгнуть N раз');
-                console.log('     .join1 - зайти на 1 выжу');
-                console.log('     .join2 - зайти на 2 выжу');
-                console.log('     .join3 - зайти на 3 выжу');
-                console.log('     .join4 - зайти на 4 выжу');
-                console.log('     .join5 - зайти на 5 выжу');
-                console.log('     .join6 - зайти на 6 выжу');
+                console.log('     .surv1 - зайти на 1 выживание');
+                console.log('     .surv2 - зайти на 2 выживание');
+                console.log('     .surv3 - зайти на 3 выживание');
+                console.log('     .surv4 - зайти на 4 выживание');
+                console.log('     .surv5 - зайти на 5 выживание');
+                console.log('     .surv6 - зайти на 6 выживание');
                 console.log('     .dance - станцевать лезгинку на минуту');
-		console.log('     .playerlist - посмотреть сколько игроков на сервере');
+                console.log('     .position - бот отправит свои координаты в клан-чат');
+                console.log('     .playerlist - посмотреть сколько игроков на сервере');
                 console.log('     .moderator on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
                 
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
             
-            case '.join1':
+            case '.surv1':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 1 выжу')
@@ -432,7 +445,7 @@ function commandMode(bot) {
                 }
                 break;
             
-            case '.join2':
+            case '.surv2':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 2 выжу')
@@ -450,7 +463,7 @@ function commandMode(bot) {
                 }
                 break;
             
-            case '.join3':
+            case '.surv3':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 3 выжу')
@@ -468,7 +481,7 @@ function commandMode(bot) {
                 }
                 break;
             
-            case '.join4':
+            case '.surv4':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 4 выжу')
@@ -486,7 +499,7 @@ function commandMode(bot) {
                 }
                 break;
             
-            case '.join5':
+            case '.surv5':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 5 выжу')
@@ -504,7 +517,7 @@ function commandMode(bot) {
                 }
                 break;
             
-            case '.join6':
+            case '.surv6':
                 try {
                     bot.activateItem()
                     console.log('[+] Заходим на 6 выжу')
@@ -738,7 +751,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.0.1
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
