@@ -44,6 +44,8 @@ const rules = {
     '4.20': '4.20 *Выдавать себя за персонал проекта и администрацию, а также их представителей, ставить ники с явной отсылкой на администрацию (Наказание: бан 6 часов).'
 }
 
+let waitingRealname = null;
+
 function askConfig() {
     const config = {};
     
@@ -180,6 +182,8 @@ function startBot(config) {
                     for (const word of banwords) {
                         if (message.includes(word)) {
                             bot.chat(`@[MOD] Банворд в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            waitingRealname = nickname;
+                            bot.chat(`/realname ${nickname}`);
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
                             break;
@@ -250,6 +254,15 @@ function startBot(config) {
                         console.log(`[MOD] Объяснение правила "${ruleKey}" в сообщении: ${jsonMsg}`);
                     }
                 }
+            }
+            // realname
+            if (
+                waitingRealname &&
+                text.includes('Настоящее имя игрока') &&
+                text.toLowerCase().includes(waitingRealname.toLowerCase())
+            ) {
+                bot.chat(`@[MOD] ${text}`);
+                waitingRealname = null;
             }
         });
     });
@@ -746,7 +759,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.1
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.2
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
