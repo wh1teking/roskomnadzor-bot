@@ -290,6 +290,32 @@ function startBot(config) {
         rl.close();
         process.exit(1);
     });
+    
+    const stafflist = ['Java45', 'SweetyPie_', '_software_', 'Atos', 'vaizu', 'JeNro0', 'BarsLan_', 'Niquoles'];
+
+    bot.on('playerJoined', (player) => {
+        if (
+            bot.moderatorMode &&
+            player &&
+            player.username &&
+            stafflist.map(n => n.toLowerCase()).includes(player.username.toLowerCase())
+        ) {
+            console.log(`[MOD] +staff: ${player.username}`);
+            bot.chat(`@[MOD] +staff: ${player.username}`);
+        }
+    });
+
+    bot.on('playerLeft', (player) => {
+        if (
+            bot.moderatorMode &&
+            player &&
+            player.username &&
+            stafflist.map(n => n.toLowerCase()).includes(player.username.toLowerCase())
+        ) {
+            console.log(`[MOD] -staff: ${player.username} (возможно /sv)`);
+            bot.chat(`@[MOD] -staff: ${player.username} (возможно /sv)`);
+        }
+    });
 
     bot.on('kicked', (reason, loggedIn) => {
         console.log('[X] Кикнут по причине:', reason, ' | Кикнут после подключения:', loggedIn);
@@ -724,8 +750,8 @@ function commandMode(bot) {
 
             case '.position':
                 const position = bot.entity.position;
-                console.log(`[+] Позиция бота: ${position.x}, ${position.y}, ${position.z}`);
-                bot.chat(`@[+] Стою на координатах: ${position.x}, ${position.y}, ${position.z}`);
+                console.log(`[+] Позиция бота: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
+                bot.chat(`@[+] Стою на координатах: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
                 break;
 
             default:
@@ -777,7 +803,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.3
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.4
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
