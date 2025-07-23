@@ -150,15 +150,16 @@ function startBot(config) {
 
     // viewer init
     bot.once('spawn', () => {
+        const viewerPort = Math.floor(Math.random() * (9999 - 1024 + 1)) + 1024; // порт 1024-9999
         createViewer(bot, { 
-            port: 1488,
+            port: viewerPort,
             firstPerson: true,
             viewDistance: 4
         });
         const oldLog = console.log;
         console.log = function(...args) {
             if (typeof args[0] === 'string' && args[0].includes('Prismarine viewer web server running on')) {
-                oldLog('[+] Зрение бота доступно по адресу http://localhost:1488');
+                oldLog(`[+] Зрение бота доступно по адресу http://localhost:${viewerPort}`);
             } else {
                 oldLog(...args);
             }
@@ -1035,7 +1036,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2.1
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2.2
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
