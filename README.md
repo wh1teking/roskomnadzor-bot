@@ -77,3 +77,5 @@ Error: Server didn't respond to transaction for clicking on slot 2 on window wit
 Фиксится установкой версии 1.20.1.
 
 На этом все.
+
+![army](https://github.com/user-attachments/assets/45a6d03d-e382-48e5-b982-168412fa5933)
