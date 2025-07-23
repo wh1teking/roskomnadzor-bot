@@ -46,6 +46,9 @@ const rules = {
 }
 
 let waitingRealname = null;
+let autoreportMode = false;
+const realnames = {};
+const pendingReports = [];
 
 function askConfig() {
     const config = {};
@@ -189,6 +192,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.6',
+                                    dateStr,
+                                    type: 'banwords',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.6 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -204,6 +231,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама или созыв "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.16',
+                                    dateStr,
+                                    type: 'message_ads',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.16 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -219,6 +270,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама чит-клиентов "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.19',
+                                    dateStr,
+                                    type: 'message_cheat_ads',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.19 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -234,6 +309,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Кого-то хотят обмануть "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.13',
+                                    dateStr,
+                                    type: 'message_scum_ads',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.13 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -249,6 +348,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружено подстрекательство на нарушение "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.3',
+                                    dateStr,
+                                    type: 'message_incitement',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.3 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -264,6 +387,30 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружено оскорбление сервера "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.10',
+                                    dateStr,
+                                    type: 'message_server_abuse',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.10 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
                             break;
                         }
                     }
@@ -295,10 +442,27 @@ function startBot(config) {
                 text.includes('Настоящее имя игрока') &&
                 text.toLowerCase().includes(waitingRealname.toLowerCase())
             ) {
-                // проверка на null
+                // проверка на null (если null, то не отправляем)
                 if (!text.includes('Настоящее имя игрока null')) {
+                    // извлекаем realname
+                    const match = text.match(/Настоящее имя игрока [^\-]+-\s*([^\s\(]+)/i);
+                    if (match && match[1]) {
+                        realnames[waitingRealname] = match[1];
+                    }
                     bot.chat(`@[MOD] ${text}`);
                     console.log(`[MOD] ${text}`);
+                    // отправляем все pendingReports для этого realname
+                    for (let i = 0; i < pendingReports.length; i++) {
+                        if (pendingReports[i].nickname === waitingRealname) {
+                            const r = pendingReports[i];
+                            if (r.timer) clearTimeout(r.timer);
+                            const realNick = (realnames[r.nickname] && realnames[r.nickname] !== 'null') ? realnames[r.nickname] : r.nickname;
+                            const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${r.botname} | 3. Нарушение: ${r.rule} | 4. Режим: surv1 | 5. Дата и время: ${r.dateStr}`;
+                            console.log(`[AUTO-REPORT] ${report}`);
+                            bot.chat(`@[AUTO-REPORT] ${report}`);
+                            pendingReports.splice(i, 1); i--;
+                        }
+                    }
                 }
                 waitingRealname = null;
             }
@@ -375,7 +539,7 @@ function commandMode(bot) {
             case '.head':
             case '.h':
                 if (args.length < 2) {
-                    console.log('[X] Использование: .head [направление] [градусы]');
+                    console.log('[X] Использование: .head (.h) [направление] [градусы]');
                     console.log('    Направления: right(r)/left(l)/up(u)/down(d)');
                 } else {
                     const direction = args[0].toLowerCase();
@@ -421,7 +585,7 @@ function commandMode(bot) {
             case '.walk':
             case '.w':
                 if (args.length < 2) {
-                    console.log('[X] Использование: .walk [направление] [кол-во секунд, 0.5 = 1 блок]');
+                    console.log('[X] Использование: .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок]');
                     console.log('    Направления: forward(f)/back(b)/right(r)/left(l)');
                 } else {
                     const direction = args[0].toLowerCase();
@@ -480,25 +644,26 @@ function commandMode(bot) {
             case '.help':
             case '.h':
                 console.log('[?] Доступные команды:');
-                console.log('     .attack(.a) - ударить');
-                console.log('     .head(.h) [направление] [градусы] - повернуть голову');
+                console.log('     .attack (.a) - ударить');
+                console.log('     .head (.h) [направление] [градусы] - повернуть голову');
                 console.log('         направления: right(r)/left(l)/up(u)/down(d)');
-                console.log('     .walk(.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
+                console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
                 console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
                 console.log('     .help - показать эту справку');
                 console.log('     .debug - дебаг');
-                console.log('     .jump(.j) - обычный прыжок');
-                console.log('     .jump(.j) multi [N] - прыгнуть N раз');
-                console.log('     .surv1(.s1) - зайти на 1 выживание');
-                console.log('     .surv2(.s2) - зайти на 2 выживание');
-                console.log('     .surv3(.s3) - зайти на 3 выживание');
-                console.log('     .surv4(.s4) - зайти на 4 выживание');
-                console.log('     .surv5(.s5) - зайти на 5 выживание');
-                console.log('     .surv6(.s6) - зайти на 6 выживание');
+                console.log('     .jump (.j) - обычный прыжок');
+                console.log('     .jump (.j) multi [N] - прыгнуть N раз');
+                console.log('     .surv1 (.s1) - зайти на 1 выживание');
+                console.log('     .surv2 (.s2) - зайти на 2 выживание');
+                console.log('     .surv3 (.s3) - зайти на 3 выживание');
+                console.log('     .surv4 (.s4) - зайти на 4 выживание');
+                console.log('     .surv5 (.s5) - зайти на 5 выживание');
+                console.log('     .surv6 (.s6) - зайти на 6 выживание');
                 console.log('     .dance - станцевать лезгинку на минуту');
-                console.log('     .position(.pos) - бот отправит свои координаты в клан-чат');
-                console.log('     .playerlist(.pl) - посмотреть сколько игроков на сервере');
-                console.log('     .moderator(.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
+                console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
+                console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
+                console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
+                console.log('     .autoreport (.arep) on/off - включить/выключить авто-жалобы');
                 
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
@@ -689,8 +854,8 @@ function commandMode(bot) {
                 else {
                     console.log('[X] Неизвестный вариант прыжка');
                     console.log('[?] Доступные варианты:');
-                    console.log('     .jump          - обычный прыжок');
-                    console.log('     .jump multi [N]  - прыгнуть N раз');
+                    console.log('     .jump (.j)          - обычный прыжок');
+                    console.log('     .jump (.j) multi [N]  - прыгнуть N раз');
                 }
                 break;
 
@@ -747,7 +912,22 @@ function commandMode(bot) {
                     console.log('[+] Режим модератора выключен!');
                     bot.chat('@[+] Режим модератора выключен!');
                 } else {
-                    console.log('[?] Использование: .moderator on|off');
+                    console.log('[?] Использование: .moderator (.mod) on|off');
+                }
+                break;
+
+            case '.autoreport':
+            case '.arep':
+                if (args[0] === 'on') {
+                    autoreportMode = true;
+                    console.log('[+] Режим автожалоб включён!');
+                    bot.chat('@[+] Режим автожалоб включён!');
+                } else if (args[0] === 'off') {
+                    autoreportMode = false;
+                    console.log('[+] Режим автожалоб выключен!');
+                    bot.chat('@[+] Режим автожалоб выключен!');
+                } else {
+                    console.log('[?] Использование: .autoreport (.arep) on|off');
                 }
                 break;
 
@@ -837,7 +1017,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.1.6_1
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
