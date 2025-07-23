@@ -49,9 +49,31 @@ Error: listen EADDRINUSE: address already in use
 
 # Возможные баги
 
-У всех бывает всякое, и от этого не отделаешься. На данный момент есть актуальная ошибка:
-`PartialReadError: Read error for undefined : Missing characters in string, found size is 41274 expected size was 66435`
+**1. PartialReadError** (безвредно, ничего не делает)
+```
+PartialReadError: Read error for undefined : Missing characters in string, found size is 41274 expected size was 66435
+```
+Проигнорируйте, с ботом ничего не случится.
 
-Просто проигнорируйте ее, бот будет дальше исправно работать без нареканий. (просто очень лень фиксить поймите пж)
+**2. Ignoring block entities as chunk failed to load...** (безвредно, ничего не делает)
+```
+Ignoring block entities as chunk failed to load at -1 -3
+Ignoring block entities as chunk failed to load at -1 3
+Ignoring block entities as chunk failed to load at -2 3
+Ignoring block entities as chunk failed to load at -2 -3
+Ignoring block entities as chunk failed to load at 0 -3
+Ignoring block entities as chunk failed to load at 0 3
+и т.д.
+```
+Фиксится установкой версии 1.20.1.
+
+3. **Error: Server didn't respond to transaction for clicking on slot 2 on window with id 1.** (крашит скрипт 100%)
+```
+      throw new Error(`Server didn't respond to transaction for clicking on slot ${slot} on window with id ${window?.id}.`)
+                ^
+
+Error: Server didn't respond to transaction for clicking on slot 2 on window with id 1.
+```
+Фиксится установкой версии 1.20.1.
 
 На этом все.
