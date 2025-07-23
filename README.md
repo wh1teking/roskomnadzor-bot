@@ -67,7 +67,7 @@ Ignoring block entities as chunk failed to load at 0 3
 ```
 Фиксится установкой версии 1.20.1.
 
-3. **Error: Server didn't respond to transaction for clicking on slot 2 on window with id 1.** (крашит скрипт 100%)
+**3. Error: Server didn't respond to transaction for clicking on slot 2 on window with id 1.** (крашит скрипт 100%)
 ```
       throw new Error(`Server didn't respond to transaction for clicking on slot ${slot} on window with id ${window?.id}.`)
                 ^
