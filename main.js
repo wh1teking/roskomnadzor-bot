@@ -649,7 +649,7 @@ function commandMode(bot) {
                 console.log('         направления: right(r)/left(l)/up(u)/down(d)');
                 console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
                 console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
-                console.log('     .help - показать эту справку');
+                console.log('     .help (.h) - показать эту справку');
                 console.log('     .debug - дебаг');
                 console.log('     .jump (.j) - обычный прыжок');
                 console.log('     .jump (.j) multi [N] - прыгнуть N раз');
@@ -659,7 +659,7 @@ function commandMode(bot) {
                 console.log('     .surv4 (.s4) - зайти на 4 выживание');
                 console.log('     .surv5 (.s5) - зайти на 5 выживание');
                 console.log('     .surv6 (.s6) - зайти на 6 выживание');
-                console.log('     .dance - станцевать лезгинку на минуту');
+                console.log('     .dance on/off - станцевать лезгинку на минуту');
                 console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
                 console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
                 console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
@@ -860,45 +860,63 @@ function commandMode(bot) {
                 break;
 
             case '.dance':
-                if (bot.danceInterval) {
-                    clearInterval(bot.danceInterval);
-                    bot.danceInterval = undefined;
-                    bot.setControlState('sneak', false);
-                }
-                if (bot.danceLookInterval) {
-                    clearInterval(bot.danceLookInterval);
-                    bot.danceLookInterval = undefined;
-                }
-                console.log('[+] Начинаем жестко исполнять!');
-                bot.setControlState('jump', true);
+                if (args[0] === 'on') {
+                    if (bot.danceInterval || bot.danceLookInterval) {
+                        console.log('[!] Танец уже запущен!');
+                        break;
+                    }
+                    console.log('[+] Начинаем жестко исполнять!');
+                    bot.setControlState('jump', true);
 
-                let sneakState = true;
-                const danceInterval = setInterval(() => {
-                    sneakState = !sneakState;
-                    bot.setControlState('sneak', sneakState);
-                }, 100);
-                bot.danceInterval = danceInterval;
+                    let sneakState = true;
+                    const danceInterval = setInterval(() => {
+                        sneakState = !sneakState;
+                        bot.setControlState('sneak', sneakState);
+                    }, 100);
+                    bot.danceInterval = danceInterval;
 
-                const danceLookInterval = setInterval(() => {
-                    const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI; // +-90°
-                    const pitch = (Math.random() - 0.5) * (Math.PI / 1); // +-90°
-                    bot.look(yaw, pitch, true);
-                }, 5);
-                bot.danceLookInterval = danceLookInterval;
+                    const danceLookInterval = setInterval(() => {
+                        const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI; // +-90°
+                        const pitch = (Math.random() - 0.5) * (Math.PI / 1); // +-90°
+                        bot.look(yaw, pitch, true);
+                    }, 5);
+                    bot.danceLookInterval = danceLookInterval;
 
-                setTimeout(() => {
-                    console.log('[+] Прекращаем жестко исполнять (прошла минута)');
-                    bot.setControlState('jump', false);
+                    setTimeout(() => {
+                        console.log('[+] Прекращаем жестко исполнять (прошла минута)');
+                        bot.setControlState('jump', false);
+                        if (bot.danceInterval) {
+                            clearInterval(bot.danceInterval);
+                            bot.danceInterval = undefined;
+                        }
+                        if (bot.danceLookInterval) {
+                            clearInterval(bot.danceLookInterval);
+                            bot.danceLookInterval = undefined;
+                        }
+                        bot.setControlState('sneak', false);
+                    }, 60000);
+                } else if (args[0] === 'off') {
+                    let wasDancing = false;
                     if (bot.danceInterval) {
                         clearInterval(bot.danceInterval);
                         bot.danceInterval = undefined;
+                        wasDancing = true;
                     }
                     if (bot.danceLookInterval) {
                         clearInterval(bot.danceLookInterval);
                         bot.danceLookInterval = undefined;
+                        wasDancing = true;
                     }
+                    bot.setControlState('jump', false);
                     bot.setControlState('sneak', false);
-                }, 60000);
+                    if (wasDancing) {
+                        console.log('[+] Танец остановлен вручную!');
+                    } else {
+                        console.log('[!] Танец не был запущен.');
+                    }
+                } else {
+                    console.log('[?] Использование: .dance on | .dance off');
+                }
                 break;
 
             case '.moderator':
@@ -1017,7 +1035,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2.1
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
