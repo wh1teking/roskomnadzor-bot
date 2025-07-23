@@ -17,7 +17,7 @@ const rl = readline.createInterface({
 
 // МОЖНО ДОБАВИТЬ СВОИ БАНВОРДЫ И ДРУГИЕ ТРИГГЕРЫ ПУТЕМ ДОБАВЛЕНИЯ В МАССИВЫ ВНИЗУ
 const banwords = ['мудила', 'пидор', 'пидорас', 'ебал', 'пздц', 'ебу', 'чмо', 'хуй', 'хуи']
-const message_ads = ['заход', 'анка', 'анархия', 'гриф', 'айпи', 'ip', 'бесплатный', 'опка', 'free', 'бесплатный донат', 'бесплатный донат', 'free op', 'бесплатная опка']
+const message_ads = ['заход', 'анархический', 'анархия', 'гриферский', 'айпи', 'ip', 'бесплатный', 'опка', 'free', 'бесплатный донат', 'бесплатный донат', 'free op', 'бесплатная опка']
 const message_cheat_ads = ['thunderhack', 'neverlose', 'neverlose.cc', 'nursultan', 'celestial', 'catlavan', 'catlean', 'wexside', 'тх', 'тандерхак', 'неверлуз', 'нурик', 'нурсултан', 'целка', 'целестиал', 'катлаван']
 const message_scum_ads = ['скам', 'раздача доната', 'раздача дк', 'раздача донат кейсов', 'раздача титул кейсов', 'раздача кейсов', 'раздача донат', 'раздача тк']
 const message_incitement = ['дай акк', 'продай акк', 'акк', 'аккаунт', 'продам акк', 'куплю акк']
@@ -49,6 +49,9 @@ let waitingRealname = null;
 let autoreportMode = false;
 const realnames = {};
 const pendingReports = [];
+let lastConfig = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 function askConfig() {
     const config = {};
@@ -129,6 +132,8 @@ function createBotWithProxy(config) {
 }
 
 function startBot(config) {
+    lastConfig = config;
+    reconnectAttempts = 0;
     console.log('\n[*] Подключаемся к серверу...');
     console.log(`[*] Адрес: ${config.host}:${config.port}`);
     console.log(`[*] Ник: ${config.username}`);
@@ -504,15 +509,33 @@ function startBot(config) {
 
     bot.on('kicked', (reason, loggedIn) => {
         console.log('[X] Кикнут по причине:', reason, ' | Кикнут после подключения:', loggedIn);
-        rl.close();
-        process.exit(1);
+        // rl.close();
+        // process.exit(1);
+        tryReconnect();
     });
 
     bot.on('end', () => {
         console.log('[X] Бот отключился от сервера');
-        rl.close();
-        process.exit(0);
+        // rl.close();
+        // process.exit(0);
+        tryReconnect();
     });
+}
+
+function tryReconnect() {
+    if (!lastConfig) return;
+    reconnectAttempts++;
+    if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+        console.log(`[X] Превышено максимальное число попыток переподключения (${MAX_RECONNECT_ATTEMPTS}).`);
+        rl.close();
+        process.exit(1);
+        return;
+    }
+    const delay = 5000;
+    console.log(`[~] Переподключение через ${delay / 1000} секунд... (попытка ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+    setTimeout(() => {
+        startBot(lastConfig);
+    }, delay);
 }
 // команды
 function commandMode(bot) {
@@ -1036,7 +1059,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.2.2
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.3
 `);
 console.log('                    project by goddamnblessed and nithbann\n\n')
 console.log('[*] Настройка подключения к Minecraft серверу\n');
