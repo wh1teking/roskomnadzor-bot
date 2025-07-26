@@ -78,4 +78,4 @@ Error: Server didn't respond to transaction for clicking on slot 2 on window wit
 
 На этом все.
 
-![army](https://github.com/user-attachments/assets/45a6d03d-e382-48e5-b982-168412fa5933)
+<img width="1081" height="601" alt="big-army" src="https://github.com/user-attachments/assets/288b1b95-30f2-446d-ad98-ac483a507a3f" />
