@@ -3,6 +3,8 @@ const readline = require('readline');
 const Socks = require('socks').SocksClient;
 const vec3 = require('vec3');
 const { mineflayer: createViewer } = require('prismarine-viewer');
+const http = require('http');
+const fs = require('fs')
 
 process.on('warning', (warning) => {
     if (!warning.message.includes('is deprecated. Use entity.displayName instead')) {
@@ -22,6 +24,8 @@ const message_cheat_ads = ['thunderhack', 'neverlose', 'neverlose.cc', 'nursulta
 const message_scum_ads = ['скам', 'раздача доната', 'раздача дк', 'раздача донат кейсов', 'раздача титул кейсов', 'раздача кейсов', 'раздача донат', 'раздача тк']
 const message_incitement = ['дай акк', 'продай акк', 'акк', 'аккаунт', 'продам акк', 'куплю акк']
 const message_server_abuse = ['сервер говн', 'сервер гавн', 'сервер хуй', 'серв говн', 'серв гавн', 'серв хуй']
+const message_begging = ['дайте', 'пж', 'пожалуйста', 'очень нужно', 'кто даст', 'помогите', 'помоги', 'нужны деньги', 'нужна помощь', 'срочно нужно', 'кто поможет', 'дай', 'дайте пж', 'пж дайте',
+    'хочу дом', 'построить дом', 'для постройки', 'выдайте', 'кто даст', 'кто скинет', 'скиньте', 'подайте', 'пж помогите', 'пж помоги', 'пж скиньте', 'пж дайте', 'пж кто нибудь', 'очень надо', 'очень нужно', 'очень нужен', 'очень нужны', 'не жалко', 'кому не жалко']
 const rules = {
     '4.1': '4.1 Затрагивание семьи в оскорбительной форме (Наказание: мут от 2 часов до 1 дня);',
     '4.2': '4.2 *Гриферство, застройка/заливка чужих регионов, зазыв на ловушки, тп с намерением убить, мошенничество и т.п. от креатива. Неприличные/оскорбительные постройки (Наказание: бан от 6 часов до 1 дня/навсегда(только по жалобе));',
@@ -33,7 +37,7 @@ const rules = {
     '4.8': '4.8 Препятствие нормальной игре/помеха в регионе (Наказание: бан 6 часов);',
     '4.9': '4.9 *Необоснованный, оскорбительный бан, мут, кик (Наказание: бан от 1 до 6 часов/навсегда);',
     '4.10': '4.10 *Оскорблять и провоцировать администрацию проекта, а также сам проект. (Наказание: бан 3 дня/навсегда);',
-    '4.11': '4.11 Разбан/размут нарушителя. (Наказание: бан 4 часа);м',
+    '4.11': '4.11 Разбан/размут нарушителя. (Наказание: бан 4 часа);',
     '4.12': '4.12 *Вводить в заблуждение администрацию проекта, подделка документов, скриншотов и т.п. (Наказание: бан навсегда);',
     '4.13': '4.13 *Взлом, скам, фишинг, выманивание и распространение личных данных, а также угрозы взломом (Наказание: бан навсегда);',
     '4.14': '4.14 Использование читов в пвп (Наказание: бан 1 день(только по жалобе));',
@@ -49,9 +53,52 @@ let waitingRealname = null;
 let autoreportMode = false;
 const realnames = {};
 const pendingReports = [];
-let lastConfig = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+
+let analyzeMode = false;
+let analyzeLogStream = null;
+let analyzeLogFile = '';
+
+let lastConfig = null; // для реконнектов
+let apiMode = true; // режим работы нейронки
+let isReconnecting = false; // флаг от гигантского количества реконнектов
+let aimbotTarget = null; // цель для аимбота
+let aimbotInterval = null; // интервал аимбота
+let lastAttackTime = 0; // время последней атаки для кулдауна
+
+const bots = new Map(); // мап для хранение ботов
+let nextBotId = 1; // ид для бота
+const botLogs = new Map(); // мап для настройки логов: ид -> true/false (включен/выключен)
+
+const serverConfigs = {
+    mw: {
+        surv: 6,
+        sb: 5
+    },
+    lm: {
+        surv: 1,
+        sb: 1
+    },
+    fg: {
+        surv: 2,
+        sb: 1
+    },
+    bm: {
+        surv: 2,
+        sb: 1
+    },
+    sm: {
+        surv: 1,
+        sb: 1
+    },
+    tm: {
+        surv: 1,
+        sb: 1
+    },
+    ms: {
+        surv: 1,
+        sb: 1
+    },
+};
 
 function askConfig() {
     const config = {};
@@ -150,6 +197,8 @@ function startBot(config) {
     bot.on('login', () => {
         console.log('[+] Бот успешно подключился к серверу!');
         console.log('[+] Для вывода команд введите .help\n');
+        isReconnecting = false; // сбрасываем флаг при успешном подключении
+	    bot.physics.airdrag = 0.9800000190734863 // жалкая попытка обойти ботфильтр
         commandMode(bot);
     });
 
@@ -171,16 +220,19 @@ function startBot(config) {
         };
 
         // o_0
-        bot.on('message', (jsonMsg) => {
-            const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+        bot.on('message', async (jsonMsg) => {
             const text = jsonMsg.toString();
+            if (text.includes('(🗡)')) {
+                return;
+            }
+            const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const nickMatch = text.match(/^[^|]+\|\s*\[[^\]]+\]\s*([^\s\[\]*]+).*➯/);
             let nickname = '???';
             if (nickMatch) {
                 nickname = nickMatch[1];
             }
             // вывод в консоль
-            console.log(`[${timestamp}] ${text}`);
+            console.log(`[${bot.username} - main] [${timestamp}] ${text}`);
             // модерация
             if (bot.moderatorMode) {
                 const msgMatch = text.match(/➯\s*(.+)$/i);
@@ -191,13 +243,27 @@ function startBot(config) {
                     // банворды
                     for (const word of banwords) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Банворд в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Банворд в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -230,13 +296,27 @@ function startBot(config) {
                     // реклама
                     for (const word of message_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Возможно реклама или созыв в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Возможно реклама или созыв в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама или созыв "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -269,13 +349,27 @@ function startBot(config) {
                     // реклама читов
                     for (const word of message_cheat_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Возможно реклама чит-клиентов в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Возможно реклама чит-клиентов в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама чит-клиентов "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -308,13 +402,27 @@ function startBot(config) {
                     // скам
                     for (const word of message_scum_ads) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Возможно скам в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Возможно скам в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Кого-то хотят обмануть "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -347,13 +455,27 @@ function startBot(config) {
                     // подстрекательство
                     for (const word of message_incitement) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Возможно подстрекательство на нарушение в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Возможно подстрекательство на нарушение в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Обнаружено подстрекательство на нарушение "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -383,16 +505,30 @@ function startBot(config) {
                     }
                     if (triggered) return;
 
-                    // оск сервера
+                    // оскорбление сервера
                     for (const word of message_server_abuse) {
                         if (message.includes(word)) {
-                            bot.chat(`@[MOD] Возможно оскорбление сервера в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            //bot.chat(`@[MOD] Возможно оскорбление сервера в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
                             waitingRealname = nickname;
                             setTimeout(() => {
                                 bot.chat(`/realname ${nickname}`);
                             }, 150);
                             console.log(`[MOD] Обнаружено оскорбление сервера "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
                             // авто жб
                             if (bot.moderatorMode && autoreportMode) {
                                 const now = new Date();
@@ -409,6 +545,59 @@ function startBot(config) {
                                     // если realname пришёл — используем его, иначе исходный ник
                                     const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
                                     const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.10 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
+                                    console.log(`[AUTO-REPORT] ${report}`);
+                                    bot.chat(`@[AUTO-REPORT] ${report}`);
+                                    // удаляем из очереди
+                                    const idx = pendingReports.indexOf(reportObj);
+                                    if (idx !== -1) pendingReports.splice(idx, 1);
+                                }, 1500);
+                                pendingReports.push(reportObj);
+                            }
+                            break;
+                        }
+                    }
+                    if (triggered) return;
+
+                    // попрошайничество
+                    for (const word of message_begging) {
+                        if (message.includes(word)) {
+                            //bot.chat(`@[MOD] Возможно попрошайничество в сообщении: "${message}" | detected: ${word} | Никнейм: ${nickname} | Время: ${timestamp}`);
+                            waitingRealname = nickname;
+                            setTimeout(() => {
+                                bot.chat(`/realname ${nickname}`);
+                            }, 150);
+                            console.log(`[MOD] Обнаружено попрошайничество "${word}" в сообщении: ${jsonMsg}`);
+                            triggered = true;
+                            if (apiMode) {
+                                (async () => {
+                                    try {
+                                        const result = await moderateMessage(text);
+                                        const conf = typeof result.confidence === 'number' ? result.confidence.toFixed(2) : 'нет данных';
+                                        const aiMsg = `[rkn-api] result: ${result.class} (уверенность: ${conf}) | Сообщение: "${text}" | Время: ${timestamp}`;
+                                        console.log(aiMsg);
+                                        bot.chat(`@${aiMsg}`);
+                                    } catch (e) {
+                                        console.log('[rkn-api] Ошибка при обращении к нейросети:', e);
+                                        bot.chat('@[rkn-api] Нейросеть не отвечает. Попробуйте позже.');
+                                    }
+                                })();
+                            }
+                            // авто жб
+                            if (bot.moderatorMode && autoreportMode) {
+                                const now = new Date();
+                                const dateStr = now.toLocaleString('ru-RU', { hour12: false });
+                                const reportObj = {
+                                    nickname,
+                                    botname: bot.username,
+                                    rule: '4.6',
+                                    dateStr,
+                                    type: 'message_begging',
+                                    timer: null
+                                };
+                                reportObj.timer = setTimeout(() => {
+                                    // если realname пришёл — используем его, иначе исходный ник
+                                    const realNick = (realnames[nickname] && realnames[nickname] !== 'null') ? realnames[nickname] : nickname;
+                                    const report = `1. Ник нарушителя: ${realNick} | 2. Ваш ник: ${bot.username} | 3. Нарушение: 4.6 | 4. Режим: surv1 | 5. Дата и время: ${dateStr}`;
                                     console.log(`[AUTO-REPORT] ${report}`);
                                     bot.chat(`@[AUTO-REPORT] ${report}`);
                                     // удаляем из очереди
@@ -448,9 +637,8 @@ function startBot(config) {
                 text.includes('Настоящее имя игрока') &&
                 text.toLowerCase().includes(waitingRealname.toLowerCase())
             ) {
-                // проверка на null (если null, то не отправляем)
+                // проверка на null (если null, то игнор)
                 if (!text.includes('Настоящее имя игрока null')) {
-                    // извлекаем realname
                     const match = text.match(/Настоящее имя игрока [^\-]+-\s*([^\s\(]+)/i);
                     if (match && match[1]) {
                         realnames[waitingRealname] = match[1];
@@ -511,31 +699,53 @@ function startBot(config) {
         console.log('[X] Кикнут по причине:', reason, ' | Кикнут после подключения:', loggedIn);
         // rl.close();
         // process.exit(1);
-        tryReconnect();
+        if (!isReconnecting) {
+            tryReconnect();
+        }
     });
 
     bot.on('end', () => {
         console.log('[X] Бот отключился от сервера');
+        if (aimbotInterval) {
+            stopAimbot(bot);
+        }
         // rl.close();
         // process.exit(0);
-        tryReconnect();
+        if (!isReconnecting) {
+            tryReconnect();
+        }
+    });
+
+    bot.on('death', () => {
+        console.log('[X] Бот умер в игре');
+        if (aimbotInterval) {
+            stopAimbot(bot);
+        }
+    });
+
+    bot.on('playerLeft', (player) => {
+        if (aimbotTarget && aimbotTarget.username === player.username) {
+            console.log(`[!] Цель ${player.username} вышла с сервера, останавливаем аимбот`);
+            stopAimbot(bot);
+        }
     });
 }
 
 function tryReconnect() {
-    if (!lastConfig) return;
-    reconnectAttempts++;
-    if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-        console.log(`[X] Превышено максимальное число попыток переподключения (${MAX_RECONNECT_ATTEMPTS}).`);
-        rl.close();
-        process.exit(1);
-        return;
-    }
-    const delay = 5000;
-    console.log(`[~] Переподключение через ${delay / 1000} секунд... (попытка ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+    if (!lastConfig || isReconnecting) return;
+    
+    isReconnecting = true;
+    
+    const timeoutDelay = 2000;
+    
     setTimeout(() => {
-        startBot(lastConfig);
-    }, delay);
+        const delay = 5000;
+        console.log(`[~] Переподключение через ${delay / 1000} секунд...`);
+        setTimeout(() => {
+            isReconnecting = false;
+            startBot(lastConfig);
+        }, delay);
+    }, timeoutDelay);
 }
 // команды
 function commandMode(bot) {
@@ -557,8 +767,37 @@ function commandMode(bot) {
         switch(command) {
             case '.attack':
             case '.a':
-                performAttack(bot);
-                break;              
+                if (args.length > 0) {
+                    const targetUsername = args[0];
+                    if (targetUsername === 'stop') {
+                        stopAimbot(bot);
+                    } else if (targetUsername === 'auto') {
+                        const nearbyPlayers = Object.values(bot.entities).filter(entity => 
+                            entity.type === 'player' && 
+                            entity.username && 
+                            entity.username !== bot.username &&
+                            entity.position.distanceTo(bot.entity.position) <= 10
+                        );
+                        
+                        if (nearbyPlayers.length > 0) {
+                            const closestPlayer = nearbyPlayers.reduce((closest, current) => {
+                                const closestDist = closest.position.distanceTo(bot.entity.position);
+                                const currentDist = current.position.distanceTo(bot.entity.position);
+                                return currentDist < closestDist ? current : closest;
+                            });
+                            
+                            console.log(`[+] Автоматически выбрана цель: ${closestPlayer.username}`);
+                            startAimbot(bot, closestPlayer.username);
+                        } else {
+                            console.log('[!] Нет игроков поблизости для атаки');
+                        }
+                    } else {
+                        startAimbot(bot, targetUsername);
+                    }
+                } else {
+                    performAttack(bot);
+                }
+                break;
 
             case '.head':
             case '.h':
@@ -669,6 +908,9 @@ function commandMode(bot) {
             case '.h':
                 console.log('[?] Доступные команды:');
                 console.log('     .attack (.a) - ударить');
+                console.log('     .attack (.a) [ник] - запустить аимбот на игрока');
+                console.log('     .attack (.a) auto - автоматически найти ближайшую цель');
+                console.log('     .attack (.a) stop - остановить аимбот');
                 console.log('     .head (.h) [направление] [градусы] - повернуть голову');
                 console.log('         направления: right(r)/left(l)/up(u)/down(d)');
                 console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
@@ -677,135 +919,40 @@ function commandMode(bot) {
                 console.log('     .debug - дебаг');
                 console.log('     .jump (.j) - обычный прыжок');
                 console.log('     .jump (.j) multi [N] - прыгнуть N раз');
-                console.log('     .surv1 (.s1) - зайти на 1 выживание');
-                console.log('     .surv2 (.s2) - зайти на 2 выживание');
-                console.log('     .surv3 (.s3) - зайти на 3 выживание');
-                console.log('     .surv4 (.s4) - зайти на 4 выживание');
-                console.log('     .surv5 (.s5) - зайти на 5 выживание');
-                console.log('     .surv6 (.s6) - зайти на 6 выживание');
+                console.log('     .join [сервер] [режим] [номер] - зайти на сервер');
+                console.log('         серверы: mw, lm, fg, bm, sm, tm, ms');
+                console.log('         mw - MusteryWorld');
+                console.log('         lm - LastMine');
+                console.log('         fg - FunnyGames');
+                console.log('         bm - BarsMine');
+                console.log('         sm - SuperMine');
+                console.log('         tm - TopMine');
+                console.log('         ms - MineStars');
+                console.log('         режимы: surv, sb');
+                console.log('         пример: .join mw surv 3');
                 console.log('     .dance on/off - станцевать лезгинку на минуту');
                 console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
                 console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
                 console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
                 console.log('     .autoreport (.arep) on/off - включить/выключить авто-жалобы');
+                console.log('     .api on/off - включить/выключить отправку запросов к нейросети');
+                console.log('     .analyze on/off - записывать чат бота в специальный .txt файл')
+                
+                console.log('\n[?] Команды для управления ботами:');
+                console.log('     .botadd (.badd) [IP] [порт] [ник] - добавить нового бота');
+                console.log('         пример: .botadd 8.8.8.8 25565 roskomnadzor');
+                console.log('     .botdel (.bdel) [номер/ник] - удалить бота');
+                console.log('         пример: .botdel 1 или .botdel roskomnadzor');
+                console.log('     .botrun (.brun) [номер/ник] [команда] - выполнить команду для бота');
+                console.log('         пример: .botrun 1 Привет! или .botrun roskomnadzor .join mw surv 1');
+                console.log('         поддерживаются все внутренние команды: .join, .attack, .head, .walk, .jump, .dance, .playerlist, .position');
+                console.log('     .botlog (.blog) [номер/ник] [on/off] - включить/выключить логи бота');
+                console.log('         пример: .botlog 1 off или .blog roskomnadzor on');
+                console.log('     .botlist (.blist) - показать список всех ботов');
                 
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
             
-            case '.surv1':
-            case '.s1':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 1 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(0, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-            
-            case '.surv2':
-            case '.s2':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 2 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(1, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-            
-            case '.surv3':
-            case '.s3':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 3 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(2, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-            
-            case '.surv4':
-            case '.s4':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 4 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(3, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-            
-            case '.surv5':
-            case '.s5':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 5 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(4, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-            
-            case '.surv6':
-            case '.s6':
-                try {
-                    bot.activateItem()
-                    console.log('[+] Заходим на 6 выжу')
-                    bot.on("windowOpen", window => {
-                    })
-                    bot.on('windowOpen', (window) => {
-                        bot.clickWindow(2, 0, 0)
-
-                        setTimeout(() => {
-                            bot.clickWindow(5, 0, 0)
-                        }, 300)
-                    })
-                } catch (err) {
-                    console.log('[X] Ошибка:', err.message);
-                }
-                break;
-                
             case '.debug':
                 const target = bot.entityAtCursor();
                 const heldItem = bot.heldItem;
@@ -829,8 +976,7 @@ function commandMode(bot) {
                 console.log('Направление головы:');
                 console.log(`   Yaw: ${yawDeg}° (${direction})`);
                 console.log(`   Pitch: ${pitchDeg}° (${pitchDeg > 0 ? 'up' : 'down'})`);
-    
-                // инфа что перед ботом
+
                 const block = bot.blockAtCursor(4);
                 if (block) {
                     console.log('Блок перед глазами:', `${block.name} (${block.position})`);
@@ -840,7 +986,43 @@ function commandMode(bot) {
                     console.log('Блок перед глазами: нет в радиусе 4 блоков');
                 }
                 break;
-              
+
+            case '.analyze':
+                if (args[0] === 'on') {
+                    if (analyzeMode) {
+                        console.log('[!] Анализ уже включён!');
+                        break;
+                    }
+                    analyzeMode = true;
+                    analyzeLogFile = getAnalyzeLogFileName(bot);
+                    analyzeLogStream = fs.createWriteStream(analyzeLogFile, { flags: 'a' });
+                    const now = new Date();
+                    const dateStr = now.toLocaleDateString('ru-RU');
+                    const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false });
+                    analyzeLogStream.write('=== ANALYZE LOG ===\n');
+                    analyzeLogStream.write(`time: ${timeStr}\n`);
+                    analyzeLogStream.write(`date: ${dateStr}\n`);
+                    analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
+                    analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
+                    console.log(`[+] Анализ чата включён. Лог пишется в файл: ${analyzeLogFile}`);
+                    bot.chat(`@[+] Анализ чата включён! Никнейм: ${bot.username} | Дата: ${dateStr} | Время: ${timeStr}`);
+                    //bot.chat('!Привет! Я - специальный помощник проекта "roskomnazdor" от goddamnblessed и nithbann, и я помогаю ловить нарушителей на этом сервере. Для улучшения качества работы все сообщения будут записываться.')
+                } else if (args[0] === 'off') {
+                    if (!analyzeMode) {
+                        console.log('[!] Анализ уже выключен!');
+                        break;
+                    }
+                    analyzeMode = false;
+                    if (analyzeLogStream) {
+                        analyzeLogStream.end();
+                        analyzeLogStream = null;
+                        console.log('[+] Анализ чата выключен. Файл закрыт.');
+                    }
+                } else {
+                    console.log('[?] Использование: .analyze on|off');
+                }
+                break;
+
             case '.jump':
             case '.j':
                 // АААА БЛЯЯЯ Я ПРЫГАЮ??!!?!?
@@ -872,7 +1054,7 @@ function commandMode(bot) {
                             }, 500);
                         }, 500); 
                     } else {
-                        console.log('[X] Укажите корректное число прыжков: .jump multi 3');
+                        console.log('[X] Укажите корректное число прыжков! Пример: .jump multi 3');
                     }
                 }
                 else {
@@ -880,6 +1062,39 @@ function commandMode(bot) {
                     console.log('[?] Доступные варианты:');
                     console.log('     .jump (.j)          - обычный прыжок');
                     console.log('     .jump (.j) multi [N]  - прыгнуть N раз');
+                }
+                break;
+            
+
+            // эта thing может быть чуть-чуть huinya фиксите сами мне лень
+            case '.join':
+                if (args.length < 3) {
+                    console.log('[X] Использование: .join [сервер] [режим] [номер]');
+                    console.log('    Серверы: mw, lm, fg, bm, sm, tm, ms');
+                    console.log('    mw - MusteryWorld');
+                    console.log('    lm - LastMine');
+                    console.log('    fg - FunnyGames');
+                    console.log('    bm - BarsMine');
+                    console.log('    sm - SuperMine');
+                    console.log('    tm - TopMine');
+                    console.log('    ms - MineStars');
+                    console.log('    Режимы: surv, sb');
+                    console.log('    Пример: .join mw surv 3');
+                    console.log('\n    Доступные серверы:');
+                    for (const [server, config] of Object.entries(serverConfigs)) {
+                        console.log(`      ${server}: surv(1-${config.surv}), sb(1-${config.sb})`);
+                    }
+                } else {
+                    const server = args[0];
+                    const mode = args[1];
+                    const serverNumber = parseInt(args[2]);
+                    
+                    if (isNaN(serverNumber)) {
+                        console.log('[X] Некорректный аргумент');
+                        break;
+                    }
+                    
+                    joinServer(bot, server, mode, serverNumber);
                 }
                 break;
 
@@ -905,20 +1120,6 @@ function commandMode(bot) {
                         bot.look(yaw, pitch, true);
                     }, 5);
                     bot.danceLookInterval = danceLookInterval;
-
-                    setTimeout(() => {
-                        console.log('[+] Прекращаем жестко исполнять (прошла минута)');
-                        bot.setControlState('jump', false);
-                        if (bot.danceInterval) {
-                            clearInterval(bot.danceInterval);
-                            bot.danceInterval = undefined;
-                        }
-                        if (bot.danceLookInterval) {
-                            clearInterval(bot.danceLookInterval);
-                            bot.danceLookInterval = undefined;
-                        }
-                        bot.setControlState('sneak', false);
-                    }, 60000);
                 } else if (args[0] === 'off') {
                     let wasDancing = false;
                     if (bot.danceInterval) {
@@ -939,7 +1140,7 @@ function commandMode(bot) {
                         console.log('[!] Танец не был запущен.');
                     }
                 } else {
-                    console.log('[?] Использование: .dance on | .dance off');
+                    console.log('[?] Использование: .dance on|off');
                 }
                 break;
 
@@ -970,6 +1171,21 @@ function commandMode(bot) {
                     bot.chat('@[+] Режим автожалоб выключен!');
                 } else {
                     console.log('[?] Использование: .autoreport (.arep) on|off');
+                }
+                break;
+
+            case '.api':
+                if (args[0] === 'on') {
+                    apiMode = true;
+                    console.log('[+] Ответы от нейросети включены!');
+                    console.log('[!] Обратите внимание, что ответы не будут работать без запущенного python-скрипта с нейросетью!')
+                    bot.chat('@[+] Ответы от нейросети включены!');
+                } else if (args[0] === 'off') {
+                    apiMode = false;
+                    console.log('[+] Ответы от нейросети выключены!');
+                    bot.chat('@[+] Ответы от нейросети выключены!');
+                } else {
+                    console.log('[?] Использование: .api on|off');
                 }
                 break;
 
@@ -1010,6 +1226,79 @@ function commandMode(bot) {
                 bot.chat(`@[+] Стою на координатах: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
                 break;
 
+            // для нескольких ботов типо команды поняли??
+            case '.botadd':
+            case '.badd':
+                if (args.length < 3) {
+                    console.log('[X] Использование: .botadd (.badd) [IP] [порт] [ник]');
+                    console.log('    Пример: .botadd 8.8.8.8 25565 roskomnadzor');
+                } else {
+                    const host = args[0];
+                    const port = args[1];
+                    const username = args[2];
+                    
+                    if (isNaN(port)) {
+                        console.log('[X] Некорректный порт');
+                        break;
+                    }
+                    
+                    const botId = addBot(host, port, username);
+                    if (botId) {
+                        return;
+                    }
+                }
+                break;
+
+            case '.botdel':
+            case '.bdel':
+                if (args.length < 1) {
+                    console.log('[X] Использование: .botdel (.bdel) [номер_бота/ник]');
+                    console.log('    Пример: .botdel 1 или .botdel roskomnadzor');
+                } else {
+                    const botIdOrUsername = args[0];
+                    if (removeBot(botIdOrUsername)) {
+                        console.log(`[+] Бот ${botIdOrUsername} успешно удален`);
+                    }
+                }
+                break;
+
+            case '.botrun':
+            case '.brun':
+                if (args.length < 2) {
+                    console.log('[X] Использование: .botrun (.brun) [номер_бота/ник] [команда/сообщение]');
+                    console.log('    Пример: .botrun 1 Привет всем!');
+                    console.log('    Пример: .botrun roskomnadzor .join mw surv 1');
+                } else {
+                    const botIdOrUsername = args[0];
+                    const command = args.slice(1).join(' ');
+                    
+                    if (runBotCommand(botIdOrUsername, command)) {
+                        return;
+                    }
+                }
+                break;
+
+            case '.botlog':
+            case '.blog':
+                if (args.length < 2) {
+                    console.log('[X] Использование: .botlog (.blog) [номер_бота/ник] [on/off]');
+                    console.log('    Пример: .botlog 1 off');
+                    console.log('    Пример: .blog roskomnadzor on');
+                } else {
+                    const botIdOrUsername = args[0];
+                    const enabled = args[1].toLowerCase() === 'on';
+                    
+                    if (setBotLog(botIdOrUsername, enabled)) {
+                        return;
+                    }
+                }
+                break;
+
+            case '.botlist':
+            case '.blist':
+                listBots();
+                break;
+
             default:
                 console.log('[X] Неизвестная команда');
                 console.log('[?] Введите .help для списка команд');
@@ -1038,6 +1327,290 @@ function performAttack(bot) {
     }
 }
 
+function findPlayerByName(bot, username) {
+    const player = bot.players[username];
+    if (player) {
+        return player;
+    }
+    
+    const entities = Object.values(bot.entities).filter(entity => 
+        entity.type === 'player' && 
+        entity.username && 
+        entity.username.toLowerCase() === username.toLowerCase()
+    );
+    
+    return entities.length > 0 ? entities[0] : null;
+}
+
+function startAimbot(bot, targetUsername) {
+    if (aimbotInterval) {
+        console.log('[!] Аимбот уже запущен!');
+        return;
+    }
+    
+    const target = findPlayerByName(bot, targetUsername);
+    if (!target) {
+        console.log(`[X] Игрок ${targetUsername} не найден в зоне видимости`);
+        return;
+    }
+    
+    aimbotTarget = target;
+    console.log(`[+] Аимбот запущен на игрока: ${targetUsername}`);
+    bot.chat(`[+] Начинаю преследовать и атаковать ${targetUsername}!`);
+    
+    aimbotInterval = setInterval(() => {
+        if (!aimbotTarget || !bot.players[aimbotTarget.username]) {
+            console.log('[!] Цель потеряна, останавливаем аимбот');
+            bot.chat('[!] Цель потеряна!');
+            stopAimbot(bot);
+            return;
+        }
+        
+        const target = bot.players[aimbotTarget.username];
+        if (!target || !target.entity) {
+            console.log('[!] Цель недоступна, останавливаем аимбот');
+            bot.chat('[!] Цель недоступна!');
+            stopAimbot(bot);
+            return;
+        }
+        
+        const distance = bot.entity.position.distanceTo(target.entity.position);
+        
+        if (distance > 32) {
+            console.log(`[!] Цель слишком далеко (${distance.toFixed(1)} блоков), останавливаем аимбот`);
+            bot.chat(`[!] Цель слишком далеко!`);
+            stopAimbot(bot);
+            return;
+        }
+        
+        const nearbyEntities = Object.values(bot.entities).filter(entity => 
+            entity.type === 'player' && 
+            entity.username !== bot.username &&
+            entity.position.distanceTo(bot.entity.position) <= 3
+        );
+        
+        if (nearbyEntities.length > 0) {
+            const randomDirection = Math.random() > 0.5 ? 'left' : 'right';
+            bot.setControlState(randomDirection, true);
+            setTimeout(() => {
+                bot.setControlState(randomDirection, false);
+            }, 200);
+        }
+        
+        bot.lookAt(target.entity.position.offset(0, target.entity.height * 0.8, 0), true);
+        
+        if (distance <= 4) {
+            const currentTime = Date.now();
+            const attackCooldown = 625;
+            // ТУТ ДОЛЖНО БЫТЬ ЧТО-ТО ПОХОЖЕЕ НА КРИТ???? МБ???
+            if (currentTime - lastAttackTime >= attackCooldown) {
+                bot.setControlState('jump', true);
+                
+                setTimeout(() => {
+                    if (target && target.entity && target.entity.isValid) {
+                        bot.swingArm('right');
+                        bot.attack(target.entity);
+                    }
+                    bot.setControlState('jump', false);
+                }, 260);
+                
+                lastAttackTime = currentTime;
+            }
+            
+            const targetPos = target.entity.position;
+            const botPos = bot.entity.position;
+
+            const dx = targetPos.x - botPos.x;
+            const dz = targetPos.z - botPos.z;
+            
+            const length = Math.sqrt(dx * dx + dz * dz);
+            if (length > 0) {
+                const normalizedDx = dx / length;
+                const normalizedDz = dz / length;
+                
+                const botYaw = bot.entity.yaw;
+                const targetYaw = Math.atan2(-normalizedDx, -normalizedDz);
+                
+                let angleDiff = targetYaw - botYaw;
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                bot.setControlState('forward', true);
+                bot.setControlState('sprint', true);
+                
+                if (angleDiff > 0.1) {
+                    bot.setControlState('left', true);
+                    bot.setControlState('right', false);
+                } else if (angleDiff < -0.1) {
+                    bot.setControlState('right', true);
+                    bot.setControlState('left', false);
+                } else {
+                    bot.setControlState('left', false);
+                    bot.setControlState('right', false);
+                }
+            }
+        } else {
+            const targetPos = target.entity.position;
+            const botPos = bot.entity.position;
+            
+            const dx = targetPos.x - botPos.x;
+            const dz = targetPos.z - botPos.z;
+            
+            const length = Math.sqrt(dx * dx + dz * dz);
+            if (length > 0) {
+                const normalizedDx = dx / length;
+                const normalizedDz = dz / length;
+                
+                const botYaw = bot.entity.yaw;
+                const targetYaw = Math.atan2(-normalizedDx, -normalizedDz);
+                
+                let angleDiff = targetYaw - botYaw;
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                bot.setControlState('forward', true);
+                bot.setControlState('sprint', true); 
+
+                if (angleDiff > 0.1) {
+                    bot.setControlState('left', true);
+                    bot.setControlState('right', false);
+                } else if (angleDiff < -0.1) {
+                    bot.setControlState('right', true);
+                    bot.setControlState('left', false);
+                } else {
+                    bot.setControlState('left', false);
+                    bot.setControlState('right', false);
+                }
+                
+                if (bot.entity.onGround) {
+                    const blockAhead = bot.blockAt(bot.entity.position.offset(0, 0, -1));
+                    const blockAbove = bot.blockAt(bot.entity.position.offset(0, 1, -1));
+                    
+                    if (blockAhead && blockAhead.boundingBox === 'block' || 
+                        (blockAhead && blockAbove && blockAbove.boundingBox === 'block')) {
+                        bot.setControlState('jump', true);
+                        setTimeout(() => {
+                            bot.setControlState('jump', false);
+                        }, 150);
+                    }
+                }
+            }
+        }
+    }, 50);
+}
+
+function stopAimbot(bot) {
+    if (aimbotInterval) {
+        clearInterval(aimbotInterval);
+        aimbotInterval = null;
+        aimbotTarget = null;
+        lastAttackTime = 0;
+        
+        bot.setControlState('forward', false);
+        bot.setControlState('back', false);
+        bot.setControlState('left', false);
+        bot.setControlState('right', false);
+        bot.setControlState('jump', false);
+        bot.setControlState('sprint', false);
+        
+        console.log('[+] Аимбот остановлен');
+        bot.chat('[+] Прекращаю преследовать и атаковать.');
+    } else {
+        console.log('[!] Аимбот не был запущен');
+    }
+}
+
+function joinServer(bot, server, mode, serverNumber) {
+    try {
+        if (!serverConfigs[server]) {
+            console.log(`[X] Неизвестный сервер: ${server}`);
+            console.log('[?] Доступные серверы: mw, lm, fg, bm, sm, tm, ms');
+            return;
+        }
+
+        if (!['surv', 'sb'].includes(mode)) {
+            console.log(`[X] Неизвестный режим: ${mode}`);
+            console.log('[?] Доступные режимы: surv, sb');
+            return;
+        }
+
+        const maxServers = serverConfigs[server][mode];
+        if (serverNumber < 1 || serverNumber > maxServers) {
+            console.log(`[X] Некорректный номер сервера: ${serverNumber}`);
+            console.log(`[?] Для ${server} в режиме ${mode} доступны номера от 1 до ${maxServers}`);
+            return;
+        }
+
+        bot.activateItem();
+        console.log(`[+] Заходим на ${server} ${mode} ${serverNumber}`);
+        bot.chat(`[+] Заходим на ${server} ${mode} ${serverNumber}`);
+        
+        bot.on("windowOpen", window => {
+            bot.removeAllListeners('windowOpen');
+        });
+        
+        bot.on('windowOpen', (window) => {
+            const modeClickIndex = mode === 'surv' ? 2 : 0;
+            bot.clickWindow(modeClickIndex, 0, 0);
+
+            setTimeout(() => {
+                const serverClickIndex = serverNumber - 1;
+                bot.clickWindow(serverClickIndex, 0, 0);
+
+                setTimeout(() => {
+                    if (bot.currentWindow && bot.currentWindow.id !== 0) {
+                        bot.closeWindow(bot.currentWindow);
+                        console.log('[+] Интерфейс закрыт');
+
+                        setTimeout(() => {
+                            if (bot.currentWindow && bot.currentWindow.id !== 0) {
+                                console.log('[!] Интерфейс не закрылся, принудительно закрываю...');
+                                bot.closeWindow(bot.currentWindow);
+                            }
+                        }, 200);
+                    }
+                }, 500);
+            }, 300);
+        });
+        
+    } catch (err) {
+        console.log('[X] Ошибка:', err.message);
+    }
+}
+
+async function moderateMessage(text) {
+    return new Promise((resolve, reject) => {
+        const data = JSON.stringify({ text });
+        const options = {
+            hostname: 'localhost',
+            port: 8000,
+            path: '/moderate',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(data, 'utf8')
+            }
+        };
+
+        const req = http.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(body);
+                    resolve(json);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.write(data, 'utf8');
+        req.end();
+    });
+}
+
 process.on('SIGINT', () => {
     console.log('\n[X] Завершение работы...');
     rl.close();
@@ -1052,6 +1625,640 @@ try {
     process.exit(1);
 }
 
+function addBot(host, port, username) {
+    const botId = nextBotId++;
+    const config = {
+        host: host,
+        port: parseInt(port),
+        username: username,
+        version: '1.20.1'
+    };
+    
+    console.log(`[+] Добавляем бота #${botId}: ${username} на ${host}:${port}`);
+    
+    try {
+        const bot = createBotWithProxy(config);
+
+        bots.set(botId, {
+            bot: bot,
+            config: config,
+            username: username,
+            id: botId
+        });
+        
+        botLogs.set(botId, true);
+        
+        setupBotEventHandlers(bot, botId);
+        
+        console.log(`[+] Бот #${botId} (${username}) успешно добавлен`);
+        return botId;
+    } catch (error) {
+        console.log(`[X] Ошибка при добавлении бота #${botId}: ${error.message}`);
+        return null;
+    }
+}
+
+function removeBot(botIdOrUsername) {
+    let botId = null;
+    
+    if (!isNaN(botIdOrUsername)) {
+        botId = parseInt(botIdOrUsername);
+    } else {
+        for (const [id, botInfo] of bots.entries()) {
+            if (botInfo.username === botIdOrUsername) {
+                botId = id;
+                break;
+            }
+        }
+    }
+    
+    if (!botId || !bots.has(botId)) {
+        console.log(`[X] Бот не найден: ${botIdOrUsername}`);
+        return false;
+    }
+    
+    const botInfo = bots.get(botId);
+    console.log(`[+] Отключаем бота #${botId} (${botInfo.username})`);
+    
+    try {
+        botInfo.bot.quit();
+        bots.delete(botId);
+        botLogs.delete(botId);
+        console.log(`[+] Бот #${botId} (${botInfo.username}) успешно удален`);
+        return true;
+    } catch (error) {
+        console.log(`[X] Ошибка при удалении бота #${botId}: ${error.message}`);
+        return false;
+    }
+}
+
+function runBotCommand(botIdOrUsername, command) {
+    let botId = null;
+    
+    if (!isNaN(botIdOrUsername)) {
+        botId = parseInt(botIdOrUsername);
+    } else {
+        for (const [id, botInfo] of bots.entries()) {
+            if (botInfo.username === botIdOrUsername) {
+                botId = id;
+                break;
+            }
+        }
+    }
+    
+    if (!botId || !bots.has(botId)) {
+        console.log(`[X] Бот не найден: ${botIdOrUsername}`);
+        return false;
+    }
+    
+    const botInfo = bots.get(botId);
+    const bot = botInfo.bot;
+    
+    if (!bot || !bot.player) {
+        console.log(`[X] Бот #${botId} (${botInfo.username}) не подключен`);
+        return false;
+    }
+    
+    console.log(`[+] Выполняем команду для бота #${botId} (${botInfo.username}): ${command}`);
+    
+    if (command.startsWith('.')) {
+        return executeRemoteBotCommand(bot, botId, command);
+    } else {
+        bot.chat(command);
+    }
+    
+    return true;
+}
+
+function executeRemoteBotCommand(bot, botId, command) {
+    const parts = command.split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
+    
+    switch(cmd) {
+        case '.head':
+        case '.h':
+            if (args.length < 2) {
+                console.log('[X] Использование: .head (.h) [направление] [градусы]');
+                console.log('    Направления: right(r)/left(l)/up(u)/down(d)');
+            } else {
+                const direction = args[0].toLowerCase();
+                const degrees = parseFloat(args[1]);
+                
+                if (isNaN(degrees)) {
+                    console.log('[X] Некорректное значение градусов');
+                    break;
+                }
+                const radians = degrees * (Math.PI / 180);
+                let yaw = bot.entity.yaw;
+                let pitch = bot.entity.pitch;
+                switch(direction) {
+                    case 'right':
+                    case 'r':
+                        yaw -= radians;
+                        break;
+                    case 'left':
+                    case 'l':
+                        yaw += radians;
+                        break;
+                    case 'down':
+                    case 'd':
+                        pitch -= radians;
+                        break;
+                    case 'up':
+                    case 'u':
+                        pitch += radians;
+                        break;
+                    default:
+                        console.log('[X] Неизвестное направление');
+                        return;
+                }
+                bot.look(yaw, pitch, false);
+                console.log(`[+] Повернул голову: ${direction} на ${degrees}°`);
+		        bot.chat(`[+] Повернул голову: ${direction} на ${degrees}`)
+            }
+            break;
+        case '.walk':
+        case '.w':
+            if (args.length < 2) {
+                console.log('[X] Использование: .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок]');
+                console.log('    Направления: forward(f)/back(b)/right(r)/left(l)');
+            } else {
+                const direction = args[0].toLowerCase();
+                const blocks = parseFloat(args[1]);
+                
+                if (isNaN(blocks)) {
+                    console.log('[X] Некорректное значение блоков');
+                    break;
+                }
+                const controls = {
+                    forward: false,
+                    back: false,
+                    left: false,
+                    right: false
+                };
+                switch(direction) {
+                    case 'forward':
+                    case 'f':
+                        controls.forward = true;
+                        break;
+                    case 'back':
+                    case 'b':
+                        controls.back = true;
+                        break;
+                    case 'right':
+                    case 'r':
+                        controls.right = true;
+                        break;
+                    case 'left':
+                    case 'f':
+                        controls.forward = true;
+                        break;
+                    case 'back':
+                    case 'b':
+                        controls.back = true;
+                        break;
+                    case 'right':
+                    case 'r':
+                        controls.right = true;
+                        break;
+                    case 'left':
+                    case 'l':
+                        controls.left = true;
+                        break;
+                    default:
+                        console.log('[X] Неизвестное направление');
+                        return;
+                }
+                bot.setControlState('forward', controls.forward);
+                bot.setControlState('back', controls.back);
+                bot.setControlState('left', controls.left);
+                bot.setControlState('right', controls.right);
+                setTimeout(() => {
+                    bot.setControlState('forward', false);
+                    bot.setControlState('back', false);
+                    bot.setControlState('left', false);
+                    bot.setControlState('right', false);
+                    console.log(`[+] Шагал ${blocks} сек. в направлении ${direction}`)
+			        bot.chat(`[+] Шагал ${blocks} сек. в направлении ${direction}`);
+                }, blocks * 500); // 0.5 = 1 block
+            }
+                break;
+
+        case '.help':
+        case '.h':
+            console.log('[?] Доступные команды:');
+            console.log('     .attack (.a) - ударить');
+            console.log('     .attack (.a) [ник] - запустить аимбот на игрока');
+            console.log('     .attack (.a) auto - автоматически найти ближайшую цель');
+            console.log('     .attack (.a) stop - остановить аимбот');
+            console.log('     .head (.h) [направление] [градусы] - повернуть голову');
+            console.log('         направления: right(r)/left(l)/up(u)/down(d)');
+            console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
+            console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
+            console.log('     .help (.h) - показать эту справку');
+            console.log('     .debug - дебаг');
+            console.log('     .jump (.j) - обычный прыжок');
+            console.log('     .jump (.j) multi [N] - прыгнуть N раз');
+            console.log('     .join [сервер] [режим] [номер] - зайти на сервер');
+            console.log('         серверы: mw, lm, fg, bm, sm, tm, ms');
+            console.log('         mw - MusteryWorld');
+            console.log('         lm - LastMine');
+            console.log('         fg - FunnyGames');
+            console.log('         bm - BarsMine');
+            console.log('         sm - SuperMine');
+            console.log('         tm - TopMine');
+            console.log('         ms - MineStars');
+            console.log('         режимы: surv, sb');
+            console.log('         пример: .join mw surv 3');
+            console.log('     .dance on/off - станцевать лезгинку на минуту');
+            console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
+            console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
+            console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
+            console.log('     .autoreport (.arep) on/off - включить/выключить авто-жалобы');
+            console.log('     .api on/off - включить/выключить отправку запросов к нейросети');
+            
+            console.log('\n[?] Команды для управления ботами:');
+            console.log('     .botadd (.badd) [IP] [порт] [ник] - добавить нового бота');
+            console.log('         пример: .botadd 8.8.8.8 25565 roskomnadzor');
+            console.log('     .botdel (.bdel) [номер/ник] - удалить бота');
+            console.log('         пример: .botdel 1 или .botdel roskomnadzor');
+            console.log('     .botrun (.brun) [номер/ник] [команда] - выполнить команду для бота');
+            console.log('         пример: .botrun 1 Привет! или .botrun roskomnadzor .join mw surv 1');
+            console.log('         !!! ПОДДЕРЖИВАЮТСЯ НЕ ВСЕ КОМАНДЫ !!!');
+            console.log('     .botlog (.blog) [номер/ник] [on/off] - включить/выключить логи бота');
+            console.log('         пример: .botlog 1 off или .blog roskomnadzor on');
+            console.log('     .botlist (.blist) - показать список всех ботов');
+            
+            console.log('\n     Любой текст без точки будет отправлен в чат');
+            break;
+            
+        case '.debug':
+            const target = bot.entityAtCursor();
+            const heldItem = bot.heldItem;
+            const yaw = bot.entity.yaw;
+            const pitch = bot.entity.pitch;
+            
+            // конвертация углов (бывает тупит и выводит +3000 градусов)
+            const yawDeg = Math.round(yaw * (180 / Math.PI));
+            const pitchDeg = Math.round(pitch * (180 / Math.PI));
+
+            let direction;
+            if (yawDeg >= -45 && yawDeg < 45) direction = 'north';
+            else if (yawDeg >= 45 && yawDeg < 135) direction = 'west';
+            else if (yawDeg >= 135 || yawDeg < -135) direction = 'south';
+            else direction = 'east';
+
+            console.log('--- Debug Info ---');
+            console.log('Цель в прицеле:', target ? `${target.name} (${target.type})` : 'нет');
+            console.log('Предмет в руке:', heldItem ? `${heldItem.name}` : 'нет');
+            console.log('Позиция бота:', bot.entity.position.floored());
+            console.log('Направление головы:');
+            console.log(`   Yaw: ${yawDeg}° (${direction})`);
+            console.log(`   Pitch: ${pitchDeg}° (${pitchDeg > 0 ? 'up' : 'down'})`);
+
+            const block = bot.blockAtCursor(4);
+            if (block) {
+                console.log('Блок перед глазами:', `${block.name} (${block.position})`);
+                console.log('Дистанция до блока:', 
+                    block.position.distanceTo(bot.entity.position).toFixed(2), 'блоков');
+            } else {
+                console.log('Блок перед глазами: нет в радиусе 4 блоков');
+            }
+            break;
+        
+        case '.analyze':
+            if (args[0] === 'on') {
+                if (analyzeMode) {
+                    console.log('[!] Анализ уже включён!');
+                    break;
+                }
+                analyzeMode = true;
+                analyzeLogFile = getAnalyzeLogFileName(bot);
+                analyzeLogStream = fs.createWriteStream(analyzeLogFile, { flags: 'a' });
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('ru-RU');
+                const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false });
+                analyzeLogStream.write('=== ANALYZE LOG ===\n');
+                analyzeLogStream.write(`time: ${timeStr}\n`);
+                analyzeLogStream.write(`date: ${dateStr}\n`);
+                analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
+                analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
+                console.log(`[+] Анализ чата включён. Лог пишется в файл: ${analyzeLogFile}`);
+                bot.chat(`@[+] Анализ чата включён! Никнейм: ${bot.username} | Дата: ${dateStr} | Время: ${timeStr}`);
+                //bot.chat('!Привет! Я - специальный помощник проекта "roskomnazdor" от goddamnblessed и nithbann, и я помогаю ловить нарушителей на этом сервере. Для улучшения качества работы все сообщения будут записываться.')
+            } else if (args[0] === 'off') {
+                if (!analyzeMode) {
+                    console.log('[!] Анализ уже выключен!');
+                    break;
+                }
+                analyzeMode = false;
+                if (analyzeLogStream) {
+                    analyzeLogStream.end();
+                    analyzeLogStream = null;
+                    console.log('[+] Анализ чата выключен. Файл закрыт.');
+                }
+            } else {
+                console.log('[?] Использование: .analyze on|off');
+            }
+            break;
+            
+        case '.jump':
+        case '.j':
+            // АААА БЛЯЯЯ Я ПРЫГАЮ??!!?!?
+            if (args.length === 0) {
+                bot.setControlState('jump', true);
+                setTimeout(() => {
+                    bot.setControlState('jump', false);
+                    console.log('[+] Прыжок выполнен');
+		            bot.chat('[+] Прыгнул!')
+                }, 300);
+            }
+            
+            else if (args[0] === 'multi' && args[1]) {
+                const count = parseInt(args[1]);
+                if (!isNaN(count) && count > 0) {
+                    console.log(`[~] Прыгаю ${count} раз...`);
+		            bot.chat(`[~] Прыгаю ${count} раз...`)
+                    let jumps = 0;
+                    const interval = setInterval(() => {
+                        bot.setControlState('jump', true);
+                        setTimeout(() => {
+                            bot.setControlState('jump', false);
+                            jumps++;
+                            if (jumps >= count) {
+                                clearInterval(interval);
+                                console.log('[+] Все прыжки выполнены');
+                                bot.chat('[+] Все прыжки выполнены');
+                            }
+                        }, 500);
+                    }, 500); 
+                } else {
+                    console.log('[X] Укажите корректное число прыжков: .jump multi 3');
+                }
+            }
+            else {
+                console.log('[X] Неизвестный вариант прыжка');
+                console.log('[?] Доступные варианты:');
+                console.log('     .jump (.j)          - обычный прыжок');
+                console.log('     .jump (.j) multi [N]  - прыгнуть N раз');
+            }
+            break;
+        // ЕСЛИ ВЫ ПОЧИНИЛИ .join САМОСТОЯТЕЛЬНО, ВНЕСИТЕ ИЗМЕНЕНИЯ И СЮДА
+        case '.join':
+            if (args.length < 3) {
+                console.log('[X] Использование: .join [сервер] [режим] [номер]');
+                console.log('    Серверы: mw, lm, fg, bm, sm, tm, ms');
+                console.log('    mw - MusteryWorld');
+                console.log('    lm - LastMine');
+                console.log('    fg - FunnyGames');
+                console.log('    bm - BarsMine');
+                console.log('    sm - SuperMine');
+                console.log('    tm - TopMine');
+                console.log('    ms - MineStars');
+                console.log('    Режимы: surv, sb');
+                console.log('    Пример: .join mw surv 3');
+                console.log('\n    Доступные серверы:');
+                for (const [server, config] of Object.entries(serverConfigs)) {
+                    console.log(`      ${server}: surv(1-${config.surv}), sb(1-${config.sb})`);
+                }
+            } else {
+                const server = args[0];
+                const mode = args[1];
+                const serverNumber = parseInt(args[2]);
+                
+                if (isNaN(serverNumber)) {
+                    console.log('[X] Некорректный аргумент');
+                    break;
+                }
+                
+                joinServer(bot, server, mode, serverNumber);
+            }
+            break;
+
+        case '.dance':
+            if (args[0] === 'on') {
+                if (bot.danceInterval || bot.danceLookInterval) {
+                    console.log('[!] Танец уже запущен!');
+                    break;
+                }
+                console.log('[+] Начинаем жестко исполнять!');
+                bot.setControlState('jump', true);
+                let sneakState = true;
+                const danceInterval = setInterval(() => {
+                    sneakState = !sneakState;
+                    bot.setControlState('sneak', sneakState);
+                }, 100);
+                bot.danceInterval = danceInterval;
+
+                const danceLookInterval = setInterval(() => {
+                    const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI; // +-90°
+                    const pitch = (Math.random() - 0.5) * (Math.PI / 1); // +-90°
+                    bot.look(yaw, pitch, true);
+                }, 5);
+                bot.danceLookInterval = danceLookInterval;
+            } else if (args[0] === 'off') {
+                let wasDancing = false;
+                if (bot.danceInterval) {
+                    clearInterval(bot.danceInterval);
+                    bot.danceInterval = undefined;
+                    wasDancing = true;
+                }
+                if (bot.danceLookInterval) {
+                    clearInterval(bot.danceLookInterval);
+                    bot.danceLookInterval = undefined;
+                    wasDancing = true;
+                }
+                bot.setControlState('jump', false);
+                bot.setControlState('sneak', false);
+                if (wasDancing) {
+                    console.log('[+] Танец остановлен вручную!');
+                } else {
+                    console.log('[!] Танец не был запущен.');
+                }
+            } else {
+                console.log('[?] Использование: .dance on | .dance off');
+            }
+            break;
+
+        case '.moderator':
+        case '.mod':
+            if (args[0] === 'on') {
+                bot.moderatorMode = true;
+                console.log('[+] Режим модератора включён!');
+                bot.chat('@[+] Режим модератора включён!');
+            } else if (args[0] === 'off') {
+                bot.moderatorMode = false;
+                console.log('[+] Режим модератора выключен!');
+                bot.chat('@[+] Режим модератора выключен!');
+            } else {
+                console.log('[?] Использование: .moderator (.mod) on|off');
+            }
+            break;
+
+        case '.autoreport':
+        case '.arep':
+            if (args[0] === 'on') {
+                autoreportMode = true;
+                console.log('[+] Режим автожалоб включён!');
+                bot.chat('@[+] Режим автожалоб включён!');
+            } else if (args[0] === 'off') {
+                autoreportMode = false;
+                console.log('[+] Режим автожалоб выключен!');
+                bot.chat('@[+] Режим автожалоб выключен!');
+            } else {
+                console.log('[?] Использование: .autoreport (.arep) on|off');
+            }
+            break;
+
+        case '.api':
+            if (args[0] === 'on') {
+                apiMode = true;
+                console.log('[+] Ответы от нейросети включены!');
+                console.log('[!] Обратите внимание, что ответы не будут работать без запущенного python-скрипта с нейросетью!')
+                bot.chat('@[+] Ответы от нейросети включены!');
+            } else if (args[0] === 'off') {
+                apiMode = false;
+                console.log('[+] Ответы от нейросети выключены!');
+                bot.chat('@[+] Ответы от нейросети выключены!');
+            } else {
+                console.log('[?] Использование: .api on|off');
+            }
+            break;
+
+        case '.playerlist':
+        case '.pl':
+            console.log('\n=== СПИСОК ИГРОКОВ НА СЕРВЕРЕ ===');
+            
+            console.log('\n[1] Видимые игроки (bot.players):');
+            const visiblePlayers = Object.keys(bot.players);
+            if (visiblePlayers.length > 0) {
+                visiblePlayers.forEach((username, index) => {
+                    const player = bot.players[username];
+                    console.log(`   ${index + 1}. ${username} (UUID: ${player.uuid})`);
+                });
+            } else {
+                console.log('   Нет видимых игроков');
+            }
+                
+            console.log('\n[2] Все игроки через entities:');
+            const allPlayers = Object.values(bot.entities).filter(entity => entity.type === 'player');
+            if (allPlayers.length > 0) {
+                allPlayers.forEach((player, index) => {
+                    console.log(`   ${index + 1}. ${player.username || 'Unknown'} (ID: ${player.id})`);
+                });
+            } else {
+                console.log('   Нет игроков в entities');
+            }
+            console.log('\n=== ИТОГО ===');
+            console.log(`Видимых игроков: ${visiblePlayers.length}`);
+            console.log(`Игроков в entities: ${allPlayers.length}`);
+            console.log('================================\n');
+            break;
+
+        case '.position':
+        case '.pos':
+            const position = bot.entity.position;
+            console.log(`[+] Позиция бота: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
+            bot.chat(`@[+] Стою на координатах: ${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)}`);
+            break;
+            
+        default:
+            console.log(`[X] Неизвестная внутренняя команда: ${cmd}`);
+            return false;
+    }
+    
+    return true;
+}
+
+function setBotLog(botIdOrUsername, enabled) {
+    let botId = null;
+
+    if (!isNaN(botIdOrUsername)) {
+        botId = parseInt(botIdOrUsername);
+    } else {
+        for (const [id, botInfo] of bots.entries()) {
+            if (botInfo.username === botIdOrUsername) {
+                botId = id;
+                break;
+            }
+        }
+    }
+    
+    if (!botId || !bots.has(botId)) {
+        console.log(`[X] Бот не найден: ${botIdOrUsername}`);
+        return false;
+    }
+    
+    const botInfo = bots.get(botId);
+    botLogs.set(botId, enabled);
+    
+    console.log(`[+] Логирование бота #${botId} (${botInfo.username}) ${enabled ? 'включено' : 'выключено'}`);
+    return true;
+}
+
+function listBots() {
+    console.log('[+] Список активных ботов:');
+    
+    if (bots.size === 0) {
+        console.log('   Нет активных ботов');
+    } else {
+        for (const [botId, botInfo] of bots.entries()) {
+            const status = botInfo.bot && botInfo.bot.player ? 'подключен' : 'отключен';
+            const logs = botLogs.get(botId) ? 'вкл' : 'выкл';
+            console.log(`   #${botId}: ${botInfo.username} (${botInfo.config.host}:${botInfo.config.port}) - ${status} [логи: ${logs}]`);
+        }
+    }
+}
+
+function setupBotEventHandlers(bot, botId) {
+    const botInfo = bots.get(botId);
+    
+    bot.on('login', () => {
+        if (botLogs.get(botId)) {
+            console.log(`[${botInfo.username} - #${botId}] [+] Бот успешно подключился к серверу!`);
+        }
+    });
+    
+    bot.on('message', (jsonMsg) => {
+        if (!botLogs.get(botId)) return;
+        
+        const text = jsonMsg.toString();
+        const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+        
+        console.log(`[${botInfo.username} - #${botId}] [${timestamp}] ${text}`);
+    });
+    
+    bot.on('error', (err) => {
+        console.log(`[${botInfo.username}] [X] Ошибка подключения: ${err.message}`);
+    });
+    
+    bot.on('kicked', (reason, loggedIn) => {
+        if (botLogs.get(botId)) {
+            console.log(`[${botInfo.username}] [X] Кикнут по причине: ${reason}`);
+        }
+    });
+    
+    bot.on('end', () => {
+        if (botLogs.get(botId)) {
+            console.log(`[${botInfo.username}] [X] Бот отключился от сервера`);
+        }
+    });
+    
+    bot.on('death', () => {
+        if (botLogs.get(botId)) {
+            console.log(`[${botInfo.username}] [X] Бот умер в игре`);
+        }
+    });
+}
+
+function getAnalyzeLogFileName(bot) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ru-RU').replace(/\./g, '-');
+    const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false }).replace(/:/g, '-');
+    return `analyzeLog_${dateStr}_${timeStr}.txt`;
+}
+
 console.clear();
 console.log(`
                      __                                    .___                   
@@ -1059,8 +2266,9 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v1.3
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v2.0.0
 `);
+console.log('                           stronger, smarter, better.\n')
 console.log('                    project by goddamnblessed and nithbann\n\n')
-console.log('[*] Настройка подключения к Minecraft серверу\n');
+console.log('[*] Привет! Это настройка подключения к Minecraft серверу.\n');
 askConfig();
