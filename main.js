@@ -50,20 +50,11 @@ const rules = {
 }
 
 let waitingRealname = null;
-let autoreportMode = false;
+let isReconnecting = false; // флаг от гигантского количества реконнектов
+let lastConfig = null; // для реконнектов
+let reconnectAttempts = 0;
 const realnames = {};
 const pendingReports = [];
-
-let analyzeMode = false;
-let analyzeLogStream = null;
-let analyzeLogFile = '';
-
-let lastConfig = null; // для реконнектов
-let apiMode = true; // режим работы нейронки
-let isReconnecting = false; // флаг от гигантского количества реконнектов
-let aimbotTarget = null; // цель для аимбота
-let aimbotInterval = null; // интервал аимбота
-let lastAttackTime = 0; // время последней атаки для кулдауна
 
 const bots = new Map(); // мап для хранение ботов
 let nextBotId = 1; // ид для бота
@@ -199,6 +190,20 @@ function startBot(config) {
         console.log('[+] Для вывода команд введите .help\n');
         isReconnecting = false; // сбрасываем флаг при успешном подключении
 	    bot.physics.airdrag = 0.9800000190734863 // жалкая попытка обойти ботфильтр
+        
+        bot.autoreportMode = false;
+        bot.analyzeMode = false;
+        bot.analyzeLogStream = null;
+        bot.analyzeLogFile = '';
+        bot.apiMode = true;
+        bot.aimbotTarget = null;
+        bot.aimbotInterval = null;
+        bot.lastAttackTime = 0;
+        bot.moderatorMode = false;
+        bot.danceInterval = null;
+        bot.danceLookInterval = null;
+        bot.lastConfig = config; // для реконнектов
+        
         commandMode(bot);
     });
 
@@ -233,6 +238,12 @@ function startBot(config) {
             }
             // вывод в консоль
             console.log(`[${bot.username} - main] [${timestamp}] ${text}`);
+            
+            // запись в analyze log если включен
+            if (bot.analyzeMode && bot.analyzeLogStream) {
+                bot.analyzeLogStream.write(`[${timestamp}] ${text}\n`);
+            }
+            
             // модерация
             if (bot.moderatorMode) {
                 const msgMatch = text.match(/➯\s*(.+)$/i);
@@ -250,7 +261,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружен банворд "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -265,7 +276,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -303,7 +314,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама или созыв "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -318,7 +329,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -356,7 +367,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружена возможная реклама чит-клиентов "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -371,7 +382,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -409,7 +420,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Кого-то хотят обмануть "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -424,7 +435,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -462,7 +473,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружено подстрекательство на нарушение "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -477,7 +488,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -515,7 +526,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружено оскорбление сервера "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -530,7 +541,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -568,7 +579,7 @@ function startBot(config) {
                             }, 150);
                             console.log(`[MOD] Обнаружено попрошайничество "${word}" в сообщении: ${jsonMsg}`);
                             triggered = true;
-                            if (apiMode) {
+                            if (bot.apiMode) {
                                 (async () => {
                                     try {
                                         const result = await moderateMessage(text);
@@ -583,7 +594,7 @@ function startBot(config) {
                                 })();
                             }
                             // авто жб
-                            if (bot.moderatorMode && autoreportMode) {
+                            if (bot.moderatorMode && bot.autoreportMode) {
                                 const now = new Date();
                                 const dateStr = now.toLocaleString('ru-RU', { hour12: false });
                                 const reportObj = {
@@ -706,7 +717,7 @@ function startBot(config) {
 
     bot.on('end', () => {
         console.log('[X] Бот отключился от сервера');
-        if (aimbotInterval) {
+        if (bot.aimbotInterval) {
             stopAimbot(bot);
         }
         // rl.close();
@@ -718,13 +729,13 @@ function startBot(config) {
 
     bot.on('death', () => {
         console.log('[X] Бот умер в игре');
-        if (aimbotInterval) {
+        if (bot.aimbotInterval) {
             stopAimbot(bot);
         }
     });
 
     bot.on('playerLeft', (player) => {
-        if (aimbotTarget && aimbotTarget.username === player.username) {
+        if (bot.aimbotTarget && bot.aimbotTarget.username === player.username) {
             console.log(`[!] Цель ${player.username} вышла с сервера, останавливаем аимбот`);
             stopAimbot(bot);
         }
@@ -765,160 +776,10 @@ function commandMode(bot) {
         const args = parts.slice(1);
 
         switch(command) {
-            case '.attack':
-            case '.a':
-                if (args.length > 0) {
-                    const targetUsername = args[0];
-                    if (targetUsername === 'stop') {
-                        stopAimbot(bot);
-                    } else if (targetUsername === 'auto') {
-                        const nearbyPlayers = Object.values(bot.entities).filter(entity => 
-                            entity.type === 'player' && 
-                            entity.username && 
-                            entity.username !== bot.username &&
-                            entity.position.distanceTo(bot.entity.position) <= 10
-                        );
-                        
-                        if (nearbyPlayers.length > 0) {
-                            const closestPlayer = nearbyPlayers.reduce((closest, current) => {
-                                const closestDist = closest.position.distanceTo(bot.entity.position);
-                                const currentDist = current.position.distanceTo(bot.entity.position);
-                                return currentDist < closestDist ? current : closest;
-                            });
-                            
-                            console.log(`[+] Автоматически выбрана цель: ${closestPlayer.username}`);
-                            startAimbot(bot, closestPlayer.username);
-                        } else {
-                            console.log('[!] Нет игроков поблизости для атаки');
-                        }
-                    } else {
-                        startAimbot(bot, targetUsername);
-                    }
-                } else {
-                    performAttack(bot);
-                }
-                break;
-
-            case '.head':
-            case '.h':
-                if (args.length < 2) {
-                    console.log('[X] Использование: .head (.h) [направление] [градусы]');
-                    console.log('    Направления: right(r)/left(l)/up(u)/down(d)');
-                } else {
-                    const direction = args[0].toLowerCase();
-                    const degrees = parseFloat(args[1]);
-                    
-                    if (isNaN(degrees)) {
-                        console.log('[X] Некорректное значение градусов');
-                        break;
-                    }
-
-                    const radians = degrees * (Math.PI / 180);
-                    let yaw = bot.entity.yaw;
-                    let pitch = bot.entity.pitch;
-
-                    switch(direction) {
-                        case 'right':
-                        case 'r':
-                            yaw -= radians;
-                            break;
-                        case 'left':
-                        case 'l':
-                            yaw += radians;
-                            break;
-                        case 'down':
-                        case 'd':
-                            pitch -= radians;
-                            break;
-                        case 'up':
-                        case 'u':
-                            pitch += radians;
-                            break;
-                        default:
-                            console.log('[X] Неизвестное направление');
-                            return;
-                    }
-
-                    bot.look(yaw, pitch, false);
-                    console.log(`[+] Повернул голову: ${direction} на ${degrees}°`);
-		            bot.chat(`[+] Повернул голову: ${direction} на ${degrees}`)
-                }
-                break;
-
-            case '.walk':
-            case '.w':
-                if (args.length < 2) {
-                    console.log('[X] Использование: .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок]');
-                    console.log('    Направления: forward(f)/back(b)/right(r)/left(l)');
-                } else {
-                    const direction = args[0].toLowerCase();
-                    const blocks = parseFloat(args[1]);
-                    
-                    if (isNaN(blocks)) {
-                        console.log('[X] Некорректное значение блоков');
-                        break;
-                    }
-
-                    const controls = {
-                        forward: false,
-                        back: false,
-                        left: false,
-                        right: false
-                    };
-
-                    switch(direction) {
-                        case 'forward':
-                        case 'f':
-                            controls.forward = true;
-                            break;
-                        case 'back':
-                        case 'b':
-                            controls.back = true;
-                            break;
-                        case 'right':
-                        case 'r':
-                            controls.right = true;
-                            break;
-                        case 'left':
-                        case 'l':
-                            controls.left = true;
-                            break;
-                        default:
-                            console.log('[X] Неизвестное направление');
-                            return;
-                    }
-
-                    bot.setControlState('forward', controls.forward);
-                    bot.setControlState('back', controls.back);
-                    bot.setControlState('left', controls.left);
-                    bot.setControlState('right', controls.right);
-
-                    setTimeout(() => {
-                        bot.setControlState('forward', false);
-                        bot.setControlState('back', false);
-                        bot.setControlState('left', false);
-                        bot.setControlState('right', false);
-                        console.log(`[+] Шагал ${blocks} сек. в направлении ${direction}`)
-			            bot.chat(`[+] Шагал ${blocks} сек. в направлении ${direction}`);
-                    }, blocks * 500); // 0.5 = 1 block
-                }
-                break;
-
             case '.help':
             case '.h':
                 console.log('[?] Доступные команды:');
-                console.log('     .attack (.a) - ударить');
-                console.log('     .attack (.a) [ник] - запустить аимбот на игрока');
-                console.log('     .attack (.a) auto - автоматически найти ближайшую цель');
-                console.log('     .attack (.a) stop - остановить аимбот');
-                console.log('     .head (.h) [направление] [градусы] - повернуть голову');
-                console.log('         направления: right(r)/left(l)/up(u)/down(d)');
-                console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
-                console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
                 console.log('     .help (.h) - показать эту справку');
-                console.log('     .debug - дебаг');
-                console.log('     .jump (.j) - обычный прыжок');
-                console.log('     .jump (.j) multi [N] - прыгнуть N раз');
                 console.log('     .join [сервер] [режим] [номер] - зайти на сервер');
                 console.log('         серверы: mw, lm, fg, bm, sm, tm, ms');
                 console.log('         mw - MusteryWorld');
@@ -930,7 +791,6 @@ function commandMode(bot) {
                 console.log('         ms - MineStars');
                 console.log('         режимы: surv, sb');
                 console.log('         пример: .join mw surv 3');
-                console.log('     .dance on/off - станцевать лезгинку на минуту');
                 console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
                 console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
                 console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
@@ -953,118 +813,41 @@ function commandMode(bot) {
                 console.log('\n     Любой текст без точки будет отправлен в чат');
                 break;
             
-            case '.debug':
-                const target = bot.entityAtCursor();
-                const heldItem = bot.heldItem;
-                const yaw = bot.entity.yaw;
-                const pitch = bot.entity.pitch;
-                
-                // конвертация углов (бывает тупит и выводит +3000 градусов)
-                const yawDeg = Math.round(yaw * (180 / Math.PI));
-                const pitchDeg = Math.round(pitch * (180 / Math.PI));
-    
-                let direction;
-                if (yawDeg >= -45 && yawDeg < 45) direction = 'north';
-                else if (yawDeg >= 45 && yawDeg < 135) direction = 'west';
-                else if (yawDeg >= 135 || yawDeg < -135) direction = 'south';
-                else direction = 'east';
-    
-                console.log('--- Debug Info ---');
-                console.log('Цель в прицеле:', target ? `${target.name} (${target.type})` : 'нет');
-                console.log('Предмет в руке:', heldItem ? `${heldItem.name}` : 'нет');
-                console.log('Позиция бота:', bot.entity.position.floored());
-                console.log('Направление головы:');
-                console.log(`   Yaw: ${yawDeg}° (${direction})`);
-                console.log(`   Pitch: ${pitchDeg}° (${pitchDeg > 0 ? 'up' : 'down'})`);
-
-                const block = bot.blockAtCursor(4);
-                if (block) {
-                    console.log('Блок перед глазами:', `${block.name} (${block.position})`);
-                    console.log('Дистанция до блока:', 
-                        block.position.distanceTo(bot.entity.position).toFixed(2), 'блоков');
-                } else {
-                    console.log('Блок перед глазами: нет в радиусе 4 блоков');
-                }
-                break;
-
             case '.analyze':
                 if (args[0] === 'on') {
-                    if (analyzeMode) {
+                    if (bot.analyzeMode) {
                         console.log('[!] Анализ уже включён!');
                         break;
                     }
-                    analyzeMode = true;
-                    analyzeLogFile = getAnalyzeLogFileName(bot);
-                    analyzeLogStream = fs.createWriteStream(analyzeLogFile, { flags: 'a' });
+                    bot.analyzeMode = true;
+                    bot.analyzeLogFile = getAnalyzeLogFileName(bot);
+                    bot.analyzeLogStream = fs.createWriteStream(bot.analyzeLogFile, { flags: 'a' });
                     const now = new Date();
                     const dateStr = now.toLocaleDateString('ru-RU');
                     const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false });
-                    analyzeLogStream.write('=== ANALYZE LOG ===\n');
-                    analyzeLogStream.write(`time: ${timeStr}\n`);
-                    analyzeLogStream.write(`date: ${dateStr}\n`);
-                    analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
-                    analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
-                    console.log(`[+] Анализ чата включён. Лог пишется в файл: ${analyzeLogFile}`);
+                    bot.analyzeLogStream.write('=== ANALYZE LOG ===\n');
+                    bot.analyzeLogStream.write(`time: ${timeStr}\n`);
+                    bot.analyzeLogStream.write(`date: ${dateStr}\n`);
+                    bot.analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
+                    bot.analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
+                    console.log(`[+] Анализ чата включён. Лог пишется в файл: ${bot.analyzeLogFile}`);
                     bot.chat(`@[+] Анализ чата включён! Никнейм: ${bot.username} | Дата: ${dateStr} | Время: ${timeStr}`);
                     //bot.chat('!Привет! Я - специальный помощник проекта "roskomnazdor" от goddamnblessed и nithbann, и я помогаю ловить нарушителей на этом сервере. Для улучшения качества работы все сообщения будут записываться.')
                 } else if (args[0] === 'off') {
-                    if (!analyzeMode) {
+                    if (!bot.analyzeMode) {
                         console.log('[!] Анализ уже выключен!');
                         break;
                     }
-                    analyzeMode = false;
-                    if (analyzeLogStream) {
-                        analyzeLogStream.end();
-                        analyzeLogStream = null;
+                    bot.analyzeMode = false;
+                    if (bot.analyzeLogStream) {
+                        bot.analyzeLogStream.end();
+                        bot.analyzeLogStream = null;
                         console.log('[+] Анализ чата выключен. Файл закрыт.');
                     }
                 } else {
                     console.log('[?] Использование: .analyze on|off');
                 }
                 break;
-
-            case '.jump':
-            case '.j':
-                // АААА БЛЯЯЯ Я ПРЫГАЮ??!!?!?
-                if (args.length === 0) {
-                    bot.setControlState('jump', true);
-                    setTimeout(() => {
-                        bot.setControlState('jump', false);
-                        console.log('[+] Прыжок выполнен');
-			            bot.chat('[+] Прыгнул!')
-                    }, 300);
-                }
-                
-                else if (args[0] === 'multi' && args[1]) {
-                    const count = parseInt(args[1]);
-                    if (!isNaN(count) && count > 0) {
-                        console.log(`[~] Прыгаю ${count} раз...`);
-			            bot.chat(`[~] Прыгаю ${count} раз...`)
-                        let jumps = 0;
-                        const interval = setInterval(() => {
-                            bot.setControlState('jump', true);
-                            setTimeout(() => {
-                                bot.setControlState('jump', false);
-                                jumps++;
-                                if (jumps >= count) {
-                                    clearInterval(interval);
-                                    console.log('[+] Все прыжки выполнены');
-                                    bot.chat('[+] Все прыжки выполнены');
-                                }
-                            }, 500);
-                        }, 500); 
-                    } else {
-                        console.log('[X] Укажите корректное число прыжков! Пример: .jump multi 3');
-                    }
-                }
-                else {
-                    console.log('[X] Неизвестный вариант прыжка');
-                    console.log('[?] Доступные варианты:');
-                    console.log('     .jump (.j)          - обычный прыжок');
-                    console.log('     .jump (.j) multi [N]  - прыгнуть N раз');
-                }
-                break;
-            
 
             // эта thing может быть чуть-чуть huinya фиксите сами мне лень
             case '.join':
@@ -1098,52 +881,6 @@ function commandMode(bot) {
                 }
                 break;
 
-            case '.dance':
-                if (args[0] === 'on') {
-                    if (bot.danceInterval || bot.danceLookInterval) {
-                        console.log('[!] Танец уже запущен!');
-                        break;
-                    }
-                    console.log('[+] Начинаем жестко исполнять!');
-                    bot.setControlState('jump', true);
-
-                    let sneakState = true;
-                    const danceInterval = setInterval(() => {
-                        sneakState = !sneakState;
-                        bot.setControlState('sneak', sneakState);
-                    }, 100);
-                    bot.danceInterval = danceInterval;
-
-                    const danceLookInterval = setInterval(() => {
-                        const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI; // +-90°
-                        const pitch = (Math.random() - 0.5) * (Math.PI / 1); // +-90°
-                        bot.look(yaw, pitch, true);
-                    }, 5);
-                    bot.danceLookInterval = danceLookInterval;
-                } else if (args[0] === 'off') {
-                    let wasDancing = false;
-                    if (bot.danceInterval) {
-                        clearInterval(bot.danceInterval);
-                        bot.danceInterval = undefined;
-                        wasDancing = true;
-                    }
-                    if (bot.danceLookInterval) {
-                        clearInterval(bot.danceLookInterval);
-                        bot.danceLookInterval = undefined;
-                        wasDancing = true;
-                    }
-                    bot.setControlState('jump', false);
-                    bot.setControlState('sneak', false);
-                    if (wasDancing) {
-                        console.log('[+] Танец остановлен вручную!');
-                    } else {
-                        console.log('[!] Танец не был запущен.');
-                    }
-                } else {
-                    console.log('[?] Использование: .dance on|off');
-                }
-                break;
-
             case '.moderator':
             case '.mod':
                 if (args[0] === 'on') {
@@ -1162,11 +899,11 @@ function commandMode(bot) {
             case '.autoreport':
             case '.arep':
                 if (args[0] === 'on') {
-                    autoreportMode = true;
+                    bot.autoreportMode = true;
                     console.log('[+] Режим автожалоб включён!');
                     bot.chat('@[+] Режим автожалоб включён!');
                 } else if (args[0] === 'off') {
-                    autoreportMode = false;
+                    bot.autoreportMode = false;
                     console.log('[+] Режим автожалоб выключен!');
                     bot.chat('@[+] Режим автожалоб выключен!');
                 } else {
@@ -1176,12 +913,12 @@ function commandMode(bot) {
 
             case '.api':
                 if (args[0] === 'on') {
-                    apiMode = true;
+                    bot.apiMode = true;
                     console.log('[+] Ответы от нейросети включены!');
                     console.log('[!] Обратите внимание, что ответы не будут работать без запущенного python-скрипта с нейросетью!')
                     bot.chat('@[+] Ответы от нейросети включены!');
                 } else if (args[0] === 'off') {
-                    apiMode = false;
+                    bot.apiMode = false;
                     console.log('[+] Ответы от нейросети выключены!');
                     bot.chat('@[+] Ответы от нейросети выключены!');
                 } else {
@@ -1264,17 +1001,37 @@ function commandMode(bot) {
 
             case '.botrun':
             case '.brun':
-                if (args.length < 2) {
-                    console.log('[X] Использование: .botrun (.brun) [номер_бота/ник] [команда/сообщение]');
-                    console.log('    Пример: .botrun 1 Привет всем!');
-                    console.log('    Пример: .botrun roskomnadzor .join mw surv 1');
+                if (args.length < 3) {
+                    console.log('Использование: .botrun <id/all> <сообщение>');
+                    break;
+                }
+                
+                const botTarget = args[1];
+                const message = args.slice(2).join(' ');
+                
+                if (botTarget === 'all') {
+                    Object.values(bots).forEach(bot => {
+                        if (bot && bot.entity) {
+                            bot.chat(message);
+                        }
+                    });
+                    console.log(`Сообщение "${message}" отправлено всем ботам`);
                 } else {
-                    const botIdOrUsername = args[0];
-                    const command = args.slice(1).join(' ');
+                    const botIds = botTarget.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
                     
-                    if (runBotCommand(botIdOrUsername, command)) {
-                        return;
+                    if (botIds.length === 0) {
+                        console.log('Некорректный формат ID ботов');
+                        break;
                     }
+                    
+                    botIds.forEach(id => {
+                        if (bots[id] && bots[id].entity) {
+                            bots[id].chat(message);
+                            console.log(`Сообщение "${message}" отправлено боту с ID ${id}`);
+                        } else {
+                            console.log(`Бот с ID ${id} не найден или не активен`);
+                        }
+                    });
                 }
                 break;
 
@@ -1304,220 +1061,6 @@ function commandMode(bot) {
                 console.log('[?] Введите .help для списка команд');
         }
     });
-}
-
-function performAttack(bot) {
-    console.log('[~] Выполняю удар...');
-    bot.chat('[+] Атакую!')
-    
-    try {
-        bot.swingArm('right');
-        const entity = bot.entityAtCursor();
-        if (entity && entity.position.distanceTo(bot.entity.position) < 4) {
-            bot.attack(entity, () => {
-                console.log('[+] Успешная атака по цели');
-            });
-        } else {
-            bot.activateItem(() => {
-                console.log('[+] Удар! (без цели)');
-            });
-        }
-    } catch (err) {
-        console.log('[X] Ошибка:', err.message);
-    }
-}
-
-function findPlayerByName(bot, username) {
-    const player = bot.players[username];
-    if (player) {
-        return player;
-    }
-    
-    const entities = Object.values(bot.entities).filter(entity => 
-        entity.type === 'player' && 
-        entity.username && 
-        entity.username.toLowerCase() === username.toLowerCase()
-    );
-    
-    return entities.length > 0 ? entities[0] : null;
-}
-
-function startAimbot(bot, targetUsername) {
-    if (aimbotInterval) {
-        console.log('[!] Аимбот уже запущен!');
-        return;
-    }
-    
-    const target = findPlayerByName(bot, targetUsername);
-    if (!target) {
-        console.log(`[X] Игрок ${targetUsername} не найден в зоне видимости`);
-        return;
-    }
-    
-    aimbotTarget = target;
-    console.log(`[+] Аимбот запущен на игрока: ${targetUsername}`);
-    bot.chat(`[+] Начинаю преследовать и атаковать ${targetUsername}!`);
-    
-    aimbotInterval = setInterval(() => {
-        if (!aimbotTarget || !bot.players[aimbotTarget.username]) {
-            console.log('[!] Цель потеряна, останавливаем аимбот');
-            bot.chat('[!] Цель потеряна!');
-            stopAimbot(bot);
-            return;
-        }
-        
-        const target = bot.players[aimbotTarget.username];
-        if (!target || !target.entity) {
-            console.log('[!] Цель недоступна, останавливаем аимбот');
-            bot.chat('[!] Цель недоступна!');
-            stopAimbot(bot);
-            return;
-        }
-        
-        const distance = bot.entity.position.distanceTo(target.entity.position);
-        
-        if (distance > 32) {
-            console.log(`[!] Цель слишком далеко (${distance.toFixed(1)} блоков), останавливаем аимбот`);
-            bot.chat(`[!] Цель слишком далеко!`);
-            stopAimbot(bot);
-            return;
-        }
-        
-        const nearbyEntities = Object.values(bot.entities).filter(entity => 
-            entity.type === 'player' && 
-            entity.username !== bot.username &&
-            entity.position.distanceTo(bot.entity.position) <= 3
-        );
-        
-        if (nearbyEntities.length > 0) {
-            const randomDirection = Math.random() > 0.5 ? 'left' : 'right';
-            bot.setControlState(randomDirection, true);
-            setTimeout(() => {
-                bot.setControlState(randomDirection, false);
-            }, 200);
-        }
-        
-        bot.lookAt(target.entity.position.offset(0, target.entity.height * 0.8, 0), true);
-        
-        if (distance <= 4) {
-            const currentTime = Date.now();
-            const attackCooldown = 625;
-            // ТУТ ДОЛЖНО БЫТЬ ЧТО-ТО ПОХОЖЕЕ НА КРИТ???? МБ???
-            if (currentTime - lastAttackTime >= attackCooldown) {
-                bot.setControlState('jump', true);
-                
-                setTimeout(() => {
-                    if (target && target.entity && target.entity.isValid) {
-                        bot.swingArm('right');
-                        bot.attack(target.entity);
-                    }
-                    bot.setControlState('jump', false);
-                }, 260);
-                
-                lastAttackTime = currentTime;
-            }
-            
-            const targetPos = target.entity.position;
-            const botPos = bot.entity.position;
-
-            const dx = targetPos.x - botPos.x;
-            const dz = targetPos.z - botPos.z;
-            
-            const length = Math.sqrt(dx * dx + dz * dz);
-            if (length > 0) {
-                const normalizedDx = dx / length;
-                const normalizedDz = dz / length;
-                
-                const botYaw = bot.entity.yaw;
-                const targetYaw = Math.atan2(-normalizedDx, -normalizedDz);
-                
-                let angleDiff = targetYaw - botYaw;
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                
-                bot.setControlState('forward', true);
-                bot.setControlState('sprint', true);
-                
-                if (angleDiff > 0.1) {
-                    bot.setControlState('left', true);
-                    bot.setControlState('right', false);
-                } else if (angleDiff < -0.1) {
-                    bot.setControlState('right', true);
-                    bot.setControlState('left', false);
-                } else {
-                    bot.setControlState('left', false);
-                    bot.setControlState('right', false);
-                }
-            }
-        } else {
-            const targetPos = target.entity.position;
-            const botPos = bot.entity.position;
-            
-            const dx = targetPos.x - botPos.x;
-            const dz = targetPos.z - botPos.z;
-            
-            const length = Math.sqrt(dx * dx + dz * dz);
-            if (length > 0) {
-                const normalizedDx = dx / length;
-                const normalizedDz = dz / length;
-                
-                const botYaw = bot.entity.yaw;
-                const targetYaw = Math.atan2(-normalizedDx, -normalizedDz);
-                
-                let angleDiff = targetYaw - botYaw;
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                
-                bot.setControlState('forward', true);
-                bot.setControlState('sprint', true); 
-
-                if (angleDiff > 0.1) {
-                    bot.setControlState('left', true);
-                    bot.setControlState('right', false);
-                } else if (angleDiff < -0.1) {
-                    bot.setControlState('right', true);
-                    bot.setControlState('left', false);
-                } else {
-                    bot.setControlState('left', false);
-                    bot.setControlState('right', false);
-                }
-                
-                if (bot.entity.onGround) {
-                    const blockAhead = bot.blockAt(bot.entity.position.offset(0, 0, -1));
-                    const blockAbove = bot.blockAt(bot.entity.position.offset(0, 1, -1));
-                    
-                    if (blockAhead && blockAhead.boundingBox === 'block' || 
-                        (blockAhead && blockAbove && blockAbove.boundingBox === 'block')) {
-                        bot.setControlState('jump', true);
-                        setTimeout(() => {
-                            bot.setControlState('jump', false);
-                        }, 150);
-                    }
-                }
-            }
-        }
-    }, 50);
-}
-
-function stopAimbot(bot) {
-    if (aimbotInterval) {
-        clearInterval(aimbotInterval);
-        aimbotInterval = null;
-        aimbotTarget = null;
-        lastAttackTime = 0;
-        
-        bot.setControlState('forward', false);
-        bot.setControlState('back', false);
-        bot.setControlState('left', false);
-        bot.setControlState('right', false);
-        bot.setControlState('jump', false);
-        bot.setControlState('sprint', false);
-        
-        console.log('[+] Аимбот остановлен');
-        bot.chat('[+] Прекращаю преследовать и атаковать.');
-    } else {
-        console.log('[!] Аимбот не был запущен');
-    }
 }
 
 function joinServer(bot, server, mode, serverNumber) {
@@ -1736,226 +1279,35 @@ function executeRemoteBotCommand(bot, botId, command) {
     const args = parts.slice(1);
     
     switch(cmd) {
-        case '.head':
-        case '.h':
-            if (args.length < 2) {
-                console.log('[X] Использование: .head (.h) [направление] [градусы]');
-                console.log('    Направления: right(r)/left(l)/up(u)/down(d)');
-            } else {
-                const direction = args[0].toLowerCase();
-                const degrees = parseFloat(args[1]);
-                
-                if (isNaN(degrees)) {
-                    console.log('[X] Некорректное значение градусов');
-                    break;
-                }
-                const radians = degrees * (Math.PI / 180);
-                let yaw = bot.entity.yaw;
-                let pitch = bot.entity.pitch;
-                switch(direction) {
-                    case 'right':
-                    case 'r':
-                        yaw -= radians;
-                        break;
-                    case 'left':
-                    case 'l':
-                        yaw += radians;
-                        break;
-                    case 'down':
-                    case 'd':
-                        pitch -= radians;
-                        break;
-                    case 'up':
-                    case 'u':
-                        pitch += radians;
-                        break;
-                    default:
-                        console.log('[X] Неизвестное направление');
-                        return;
-                }
-                bot.look(yaw, pitch, false);
-                console.log(`[+] Повернул голову: ${direction} на ${degrees}°`);
-		        bot.chat(`[+] Повернул голову: ${direction} на ${degrees}`)
-            }
-            break;
-        case '.walk':
-        case '.w':
-            if (args.length < 2) {
-                console.log('[X] Использование: .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок]');
-                console.log('    Направления: forward(f)/back(b)/right(r)/left(l)');
-            } else {
-                const direction = args[0].toLowerCase();
-                const blocks = parseFloat(args[1]);
-                
-                if (isNaN(blocks)) {
-                    console.log('[X] Некорректное значение блоков');
-                    break;
-                }
-                const controls = {
-                    forward: false,
-                    back: false,
-                    left: false,
-                    right: false
-                };
-                switch(direction) {
-                    case 'forward':
-                    case 'f':
-                        controls.forward = true;
-                        break;
-                    case 'back':
-                    case 'b':
-                        controls.back = true;
-                        break;
-                    case 'right':
-                    case 'r':
-                        controls.right = true;
-                        break;
-                    case 'left':
-                    case 'f':
-                        controls.forward = true;
-                        break;
-                    case 'back':
-                    case 'b':
-                        controls.back = true;
-                        break;
-                    case 'right':
-                    case 'r':
-                        controls.right = true;
-                        break;
-                    case 'left':
-                    case 'l':
-                        controls.left = true;
-                        break;
-                    default:
-                        console.log('[X] Неизвестное направление');
-                        return;
-                }
-                bot.setControlState('forward', controls.forward);
-                bot.setControlState('back', controls.back);
-                bot.setControlState('left', controls.left);
-                bot.setControlState('right', controls.right);
-                setTimeout(() => {
-                    bot.setControlState('forward', false);
-                    bot.setControlState('back', false);
-                    bot.setControlState('left', false);
-                    bot.setControlState('right', false);
-                    console.log(`[+] Шагал ${blocks} сек. в направлении ${direction}`)
-			        bot.chat(`[+] Шагал ${blocks} сек. в направлении ${direction}`);
-                }, blocks * 500); // 0.5 = 1 block
-            }
-                break;
-
-        case '.help':
-        case '.h':
-            console.log('[?] Доступные команды:');
-            console.log('     .attack (.a) - ударить');
-            console.log('     .attack (.a) [ник] - запустить аимбот на игрока');
-            console.log('     .attack (.a) auto - автоматически найти ближайшую цель');
-            console.log('     .attack (.a) stop - остановить аимбот');
-            console.log('     .head (.h) [направление] [градусы] - повернуть голову');
-            console.log('         направления: right(r)/left(l)/up(u)/down(d)');
-            console.log('     .walk (.w) [направление] [кол-во секунд, 0.5 = 1 блок] - пройти расстояние');
-            console.log('         направления: forward(f)/back(b)/right(r)/left(l)');
-            console.log('     .help (.h) - показать эту справку');
-            console.log('     .debug - дебаг');
-            console.log('     .jump (.j) - обычный прыжок');
-            console.log('     .jump (.j) multi [N] - прыгнуть N раз');
-            console.log('     .join [сервер] [режим] [номер] - зайти на сервер');
-            console.log('         серверы: mw, lm, fg, bm, sm, tm, ms');
-            console.log('         mw - MusteryWorld');
-            console.log('         lm - LastMine');
-            console.log('         fg - FunnyGames');
-            console.log('         bm - BarsMine');
-            console.log('         sm - SuperMine');
-            console.log('         tm - TopMine');
-            console.log('         ms - MineStars');
-            console.log('         режимы: surv, sb');
-            console.log('         пример: .join mw surv 3');
-            console.log('     .dance on/off - станцевать лезгинку на минуту');
-            console.log('     .position (.pos) - бот отправит свои координаты в клан-чат');
-            console.log('     .playerlist (.pl) - посмотреть сколько игроков на сервере');
-            console.log('     .moderator (.mod) on/off - включить/выключить модерацию (ТРЕБУЕТСЯ КЛАН!)');
-            console.log('     .autoreport (.arep) on/off - включить/выключить авто-жалобы');
-            console.log('     .api on/off - включить/выключить отправку запросов к нейросети');
-            
-            console.log('\n[?] Команды для управления ботами:');
-            console.log('     .botadd (.badd) [IP] [порт] [ник] - добавить нового бота');
-            console.log('         пример: .botadd 8.8.8.8 25565 roskomnadzor');
-            console.log('     .botdel (.bdel) [номер/ник] - удалить бота');
-            console.log('         пример: .botdel 1 или .botdel roskomnadzor');
-            console.log('     .botrun (.brun) [номер/ник] [команда] - выполнить команду для бота');
-            console.log('         пример: .botrun 1 Привет! или .botrun roskomnadzor .join mw surv 1');
-            console.log('         !!! ПОДДЕРЖИВАЮТСЯ НЕ ВСЕ КОМАНДЫ !!!');
-            console.log('     .botlog (.blog) [номер/ник] [on/off] - включить/выключить логи бота');
-            console.log('         пример: .botlog 1 off или .blog roskomnadzor on');
-            console.log('     .botlist (.blist) - показать список всех ботов');
-            
-            console.log('\n     Любой текст без точки будет отправлен в чат');
-            break;
-            
-        case '.debug':
-            const target = bot.entityAtCursor();
-            const heldItem = bot.heldItem;
-            const yaw = bot.entity.yaw;
-            const pitch = bot.entity.pitch;
-            
-            // конвертация углов (бывает тупит и выводит +3000 градусов)
-            const yawDeg = Math.round(yaw * (180 / Math.PI));
-            const pitchDeg = Math.round(pitch * (180 / Math.PI));
-
-            let direction;
-            if (yawDeg >= -45 && yawDeg < 45) direction = 'north';
-            else if (yawDeg >= 45 && yawDeg < 135) direction = 'west';
-            else if (yawDeg >= 135 || yawDeg < -135) direction = 'south';
-            else direction = 'east';
-
-            console.log('--- Debug Info ---');
-            console.log('Цель в прицеле:', target ? `${target.name} (${target.type})` : 'нет');
-            console.log('Предмет в руке:', heldItem ? `${heldItem.name}` : 'нет');
-            console.log('Позиция бота:', bot.entity.position.floored());
-            console.log('Направление головы:');
-            console.log(`   Yaw: ${yawDeg}° (${direction})`);
-            console.log(`   Pitch: ${pitchDeg}° (${pitchDeg > 0 ? 'up' : 'down'})`);
-
-            const block = bot.blockAtCursor(4);
-            if (block) {
-                console.log('Блок перед глазами:', `${block.name} (${block.position})`);
-                console.log('Дистанция до блока:', 
-                    block.position.distanceTo(bot.entity.position).toFixed(2), 'блоков');
-            } else {
-                console.log('Блок перед глазами: нет в радиусе 4 блоков');
-            }
-            break;
-        
         case '.analyze':
             if (args[0] === 'on') {
-                if (analyzeMode) {
+                if (bot.analyzeMode) {
                     console.log('[!] Анализ уже включён!');
                     break;
                 }
-                analyzeMode = true;
-                analyzeLogFile = getAnalyzeLogFileName(bot);
-                analyzeLogStream = fs.createWriteStream(analyzeLogFile, { flags: 'a' });
+                bot.analyzeMode = true;
+                bot.analyzeLogFile = getAnalyzeLogFileName(bot);
+                bot.analyzeLogStream = fs.createWriteStream(bot.analyzeLogFile, { flags: 'a' });
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('ru-RU');
                 const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false });
-                analyzeLogStream.write('=== ANALYZE LOG ===\n');
-                analyzeLogStream.write(`time: ${timeStr}\n`);
-                analyzeLogStream.write(`date: ${dateStr}\n`);
-                analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
-                analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
-                console.log(`[+] Анализ чата включён. Лог пишется в файл: ${analyzeLogFile}`);
+                bot.analyzeLogStream.write('=== ANALYZE LOG ===\n');
+                bot.analyzeLogStream.write(`time: ${timeStr}\n`);
+                bot.analyzeLogStream.write(`date: ${dateStr}\n`);
+                bot.analyzeLogStream.write(`bot nickname: ${bot.username}\n`);
+                bot.analyzeLogStream.write('=== ANALYZE LOG ===\n\n');
+                console.log(`[+] Анализ чата включён. Лог пишется в файл: ${bot.analyzeLogFile}`);
                 bot.chat(`@[+] Анализ чата включён! Никнейм: ${bot.username} | Дата: ${dateStr} | Время: ${timeStr}`);
                 //bot.chat('!Привет! Я - специальный помощник проекта "roskomnazdor" от goddamnblessed и nithbann, и я помогаю ловить нарушителей на этом сервере. Для улучшения качества работы все сообщения будут записываться.')
             } else if (args[0] === 'off') {
-                if (!analyzeMode) {
+                if (!bot.analyzeMode) {
                     console.log('[!] Анализ уже выключен!');
                     break;
                 }
-                analyzeMode = false;
-                if (analyzeLogStream) {
-                    analyzeLogStream.end();
-                    analyzeLogStream = null;
+                bot.analyzeMode = false;
+                if (bot.analyzeLogStream) {
+                    bot.analyzeLogStream.end();
+                    bot.analyzeLogStream = null;
                     console.log('[+] Анализ чата выключен. Файл закрыт.');
                 }
             } else {
@@ -1963,47 +1315,6 @@ function executeRemoteBotCommand(bot, botId, command) {
             }
             break;
             
-        case '.jump':
-        case '.j':
-            // АААА БЛЯЯЯ Я ПРЫГАЮ??!!?!?
-            if (args.length === 0) {
-                bot.setControlState('jump', true);
-                setTimeout(() => {
-                    bot.setControlState('jump', false);
-                    console.log('[+] Прыжок выполнен');
-		            bot.chat('[+] Прыгнул!')
-                }, 300);
-            }
-            
-            else if (args[0] === 'multi' && args[1]) {
-                const count = parseInt(args[1]);
-                if (!isNaN(count) && count > 0) {
-                    console.log(`[~] Прыгаю ${count} раз...`);
-		            bot.chat(`[~] Прыгаю ${count} раз...`)
-                    let jumps = 0;
-                    const interval = setInterval(() => {
-                        bot.setControlState('jump', true);
-                        setTimeout(() => {
-                            bot.setControlState('jump', false);
-                            jumps++;
-                            if (jumps >= count) {
-                                clearInterval(interval);
-                                console.log('[+] Все прыжки выполнены');
-                                bot.chat('[+] Все прыжки выполнены');
-                            }
-                        }, 500);
-                    }, 500); 
-                } else {
-                    console.log('[X] Укажите корректное число прыжков: .jump multi 3');
-                }
-            }
-            else {
-                console.log('[X] Неизвестный вариант прыжка');
-                console.log('[?] Доступные варианты:');
-                console.log('     .jump (.j)          - обычный прыжок');
-                console.log('     .jump (.j) multi [N]  - прыгнуть N раз');
-            }
-            break;
         // ЕСЛИ ВЫ ПОЧИНИЛИ .join САМОСТОЯТЕЛЬНО, ВНЕСИТЕ ИЗМЕНЕНИЯ И СЮДА
         case '.join':
             if (args.length < 3) {
@@ -2036,51 +1347,6 @@ function executeRemoteBotCommand(bot, botId, command) {
             }
             break;
 
-        case '.dance':
-            if (args[0] === 'on') {
-                if (bot.danceInterval || bot.danceLookInterval) {
-                    console.log('[!] Танец уже запущен!');
-                    break;
-                }
-                console.log('[+] Начинаем жестко исполнять!');
-                bot.setControlState('jump', true);
-                let sneakState = true;
-                const danceInterval = setInterval(() => {
-                    sneakState = !sneakState;
-                    bot.setControlState('sneak', sneakState);
-                }, 100);
-                bot.danceInterval = danceInterval;
-
-                const danceLookInterval = setInterval(() => {
-                    const yaw = bot.entity.yaw + (Math.random() - 0.5) * Math.PI; // +-90°
-                    const pitch = (Math.random() - 0.5) * (Math.PI / 1); // +-90°
-                    bot.look(yaw, pitch, true);
-                }, 5);
-                bot.danceLookInterval = danceLookInterval;
-            } else if (args[0] === 'off') {
-                let wasDancing = false;
-                if (bot.danceInterval) {
-                    clearInterval(bot.danceInterval);
-                    bot.danceInterval = undefined;
-                    wasDancing = true;
-                }
-                if (bot.danceLookInterval) {
-                    clearInterval(bot.danceLookInterval);
-                    bot.danceLookInterval = undefined;
-                    wasDancing = true;
-                }
-                bot.setControlState('jump', false);
-                bot.setControlState('sneak', false);
-                if (wasDancing) {
-                    console.log('[+] Танец остановлен вручную!');
-                } else {
-                    console.log('[!] Танец не был запущен.');
-                }
-            } else {
-                console.log('[?] Использование: .dance on | .dance off');
-            }
-            break;
-
         case '.moderator':
         case '.mod':
             if (args[0] === 'on') {
@@ -2099,11 +1365,11 @@ function executeRemoteBotCommand(bot, botId, command) {
         case '.autoreport':
         case '.arep':
             if (args[0] === 'on') {
-                autoreportMode = true;
+                bot.autoreportMode = true;
                 console.log('[+] Режим автожалоб включён!');
                 bot.chat('@[+] Режим автожалоб включён!');
             } else if (args[0] === 'off') {
-                autoreportMode = false;
+                bot.autoreportMode = false;
                 console.log('[+] Режим автожалоб выключен!');
                 bot.chat('@[+] Режим автожалоб выключен!');
             } else {
@@ -2113,12 +1379,12 @@ function executeRemoteBotCommand(bot, botId, command) {
 
         case '.api':
             if (args[0] === 'on') {
-                apiMode = true;
+                bot.apiMode = true;
                 console.log('[+] Ответы от нейросети включены!');
                 console.log('[!] Обратите внимание, что ответы не будут работать без запущенного python-скрипта с нейросетью!')
                 bot.chat('@[+] Ответы от нейросети включены!');
             } else if (args[0] === 'off') {
-                apiMode = false;
+                bot.apiMode = false;
                 console.log('[+] Ответы от нейросети выключены!');
                 bot.chat('@[+] Ответы от нейросети выключены!');
             } else {
@@ -2215,6 +1481,18 @@ function setupBotEventHandlers(bot, botId) {
     const botInfo = bots.get(botId);
     
     bot.on('login', () => {
+        bot.autoreportMode = false;
+        bot.analyzeMode = false;
+        bot.analyzeLogStream = null;
+        bot.analyzeLogFile = '';
+        bot.apiMode = true;
+        bot.aimbotTarget = null;
+        bot.aimbotInterval = null;
+        bot.lastAttackTime = 0;
+        bot.moderatorMode = false;
+        bot.danceInterval = null;
+        bot.danceLookInterval = null;
+        
         if (botLogs.get(botId)) {
             console.log(`[${botInfo.username} - #${botId}] [+] Бот успешно подключился к серверу!`);
         }
@@ -2227,6 +1505,11 @@ function setupBotEventHandlers(bot, botId) {
         const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
         
         console.log(`[${botInfo.username} - #${botId}] [${timestamp}] ${text}`);
+        
+        // запись в analyze log если включен
+        if (bot.analyzeMode && bot.analyzeLogStream) {
+            bot.analyzeLogStream.write(`[${timestamp}] ${text}\n`);
+        }
     });
     
     bot.on('error', (err) => {
@@ -2256,7 +1539,7 @@ function getAnalyzeLogFileName(bot) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('ru-RU').replace(/\./g, '-');
     const timeStr = now.toLocaleTimeString('ru-RU', { hour12: false }).replace(/:/g, '-');
-    return `analyzeLog_${dateStr}_${timeStr}.txt`;
+    return `analyzeLog_${bot.username}_${dateStr}_${timeStr}.txt`;
 }
 
 console.clear();
@@ -2266,7 +1549,7 @@ _______  ____  _____|  | ______   _____   ____ _____     __| _/_________________
 \\_  __ \\/  _ \\/  ___/  |/ /  _ \\ /     \\ /    \\\\__  \\   / __ |\\___   /  _ \\_  __ \\
  |  | \\(  <_> )___ \\|    <  <_> )  Y Y  \\   |  \\/ __ \\_/ /_/ | /    (  <_> )  | \\/
  |__|   \\____/____  >__|_ \\____/|__|_|  /___|  (____  /\\____ |/_____ \\____/|__|   
-                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             v2.0.0
+                  \\/     \\/           \\/     \\/     \\/      \\/      \\/             
 `);
 console.log('                           stronger, smarter, better.\n')
 console.log('                    project by goddamnblessed and nithbann\n\n')
