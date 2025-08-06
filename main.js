@@ -1001,37 +1001,17 @@ function commandMode(bot) {
 
             case '.botrun':
             case '.brun':
-                if (args.length < 3) {
-                    console.log('Использование: .botrun <id/all> <сообщение>');
-                    break;
-                }
-                
-                const botTarget = args[1];
-                const message = args.slice(2).join(' ');
-                
-                if (botTarget === 'all') {
-                    Object.values(bots).forEach(bot => {
-                        if (bot && bot.entity) {
-                            bot.chat(message);
-                        }
-                    });
-                    console.log(`Сообщение "${message}" отправлено всем ботам`);
+                if (args.length < 2) {
+                    console.log('[X] Использование: .botrun (.brun) [номер_бота/ник] [команда] - выполнить команду для бота');
+                    console.log('    Пример: .botrun 1 Привет всем!');
+                    console.log('    Пример: .botrun roskomnadzor .join mw surv 1');
                 } else {
-                    const botIds = botTarget.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                    const botIdOrUsername = args[0];
+                    const command = args.slice(1).join(' ');
                     
-                    if (botIds.length === 0) {
-                        console.log('Некорректный формат ID ботов');
-                        break;
+                    if (runBotCommand(botIdOrUsername, command)) {
+                        return;
                     }
-                    
-                    botIds.forEach(id => {
-                        if (bots[id] && bots[id].entity) {
-                            bots[id].chat(message);
-                            console.log(`Сообщение "${message}" отправлено боту с ID ${id}`);
-                        } else {
-                            console.log(`Бот с ID ${id} не найден или не активен`);
-                        }
-                    });
                 }
                 break;
 
