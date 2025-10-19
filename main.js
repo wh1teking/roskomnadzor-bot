@@ -12,6 +12,24 @@ process.on('warning', (warning) => {
     }
 });
 
+process.on('uncaughtException', (error) => {
+    if (error.message && error.message.includes('PartialReadError') && 
+        error.message.includes('Missing characters in string')) {
+        console.log('[~] Игнорируем ошибку протокола (PartialReadError)');
+        return;
+    }
+    console.error('[X] Неперехваченная ошибка:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    if (reason && reason.message && reason.message.includes('PartialReadError') && 
+        reason.message.includes('Missing characters in string')) {
+        console.log('[~] Игнорируем rejection протокола (PartialReadError)');
+        return;
+    }
+    console.error('[X] Неперехваченный rejection:', reason);
+});
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -1216,6 +1234,95 @@ function removeBot(botIdOrUsername) {
 }
 
 function runBotCommand(botIdOrUsername, command) {
+    // обработка команды для всех ботов
+    if (botIdOrUsername.toLowerCase() === 'all') {
+        if (bots.size === 0) {
+            console.log('[X] Нет активных ботов для выполнения команды');
+            return false;
+        }
+        
+        console.log(`[+] Выполняем команду для всех ботов (${bots.size} шт.): ${command}`);
+        
+        let successCount = 0;
+        for (const [botId, botInfo] of bots.entries()) {
+            const bot = botInfo.bot;
+            
+            if (!bot || !bot.player) {
+                console.log(`[!] Бот #${botId} (${botInfo.username}) не подключен, пропускаем`);
+                continue;
+            }
+            
+            try {
+                if (command.startsWith('.')) {
+                    if (executeRemoteBotCommand(bot, botId, command)) {
+                        successCount++;
+                    }
+                } else {
+                    bot.chat(command);
+                    successCount++;
+                }
+            } catch (error) {
+                console.log(`[X] Ошибка при выполнении команды для бота #${botId}: ${error.message}`);
+            }
+        }
+        
+        console.log(`[+] Команда выполнена для ${successCount}/${bots.size} ботов`);
+        return successCount > 0;
+    }
+    
+    // обработка команды для нескольких ботов (через запятую)
+    if (botIdOrUsername.includes(',')) {
+        const botIds = botIdOrUsername.split(',').map(id => id.trim());
+        let successCount = 0;
+        
+        console.log(`[+] Выполняем команду для ботов [${botIds.join(', ')}]: ${command}`);
+        
+        for (const botIdStr of botIds) {
+            let botId = null;
+            
+            if (!isNaN(botIdStr)) {
+                botId = parseInt(botIdStr);
+            } else {
+                for (const [id, botInfo] of bots.entries()) {
+                    if (botInfo.username === botIdStr) {
+                        botId = id;
+                        break;
+                    }
+                }
+            }
+            
+            if (!botId || !bots.has(botId)) {
+                console.log(`[X] Бот не найден: ${botIdStr}`);
+                continue;
+            }
+            
+            const botInfo = bots.get(botId);
+            const bot = botInfo.bot;
+            
+            if (!bot || !bot.player) {
+                console.log(`[!] Бот #${botId} (${botInfo.username}) не подключен, пропускаем`);
+                continue;
+            }
+            
+            try {
+                if (command.startsWith('.')) {
+                    if (executeRemoteBotCommand(bot, botId, command)) {
+                        successCount++;
+                    }
+                } else {
+                    bot.chat(command);
+                    successCount++;
+                }
+            } catch (error) {
+                console.log(`[X] Ошибка при выполнении команды для бота #${botId}: ${error.message}`);
+            }
+        }
+        
+        console.log(`[+] Команда выполнена для ${successCount}/${botIds.length} ботов`);
+        return successCount > 0;
+    }
+    
+    // для одного бота
     let botId = null;
     
     if (!isNaN(botIdOrUsername)) {
