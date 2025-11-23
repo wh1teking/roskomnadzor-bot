@@ -136,6 +136,8 @@ Error: Server didn't respond to transaction for clicking on slot 2 on window wit
 
 На этом все.
 
+### roskomnadzor v2 - soon.
+
 <img width="1081" height="601" alt="big-army" src="https://github.com/user-attachments/assets/288b1b95-30f2-446d-ad98-ac483a507a3f" />
 
 <img width="295" height="233" alt="meme" src="https://github.com/user-attachments/assets/b13ec8df-f6d7-427e-b6cc-5e0a4945a2f2" />
